@@ -5,9 +5,12 @@ import morgan from 'morgan';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
-require('dotenv').config();
+import 'dotenv/config';
 
-import authRoutes from './src/routes/auth.routes';
+import authRoutes from './routes/auth.routes.js';
+//import projectRoutes from './routes/projects.routes.js';
+import analysisRoutes from './routes/analysis.routes.js';
+//import reportRoutes from './routes/reports.routes.js';
 
 const app = express();
 
@@ -35,7 +38,10 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth',      authRoutes);
+//app.use('/api/projects',  projectRoutes);
+app.use('/api/analysis',  analysisRoutes);
+//app.use('/api/reports',   reportRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 

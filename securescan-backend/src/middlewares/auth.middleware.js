@@ -1,4 +1,5 @@
-import { verify } from 'jsonwebtoken';
+import jwtPkg from 'jsonwebtoken';
+const jwt = jwtPkg;
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -20,7 +21,7 @@ const authMiddleware = (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.userId = decoded.userId;
     next();
   } catch (err) {
@@ -31,4 +32,4 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-export default { authMiddleware };
+export { authMiddleware };
