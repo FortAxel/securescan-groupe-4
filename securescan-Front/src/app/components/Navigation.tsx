@@ -10,6 +10,7 @@ export function Navigation() {
     { path: "/scan", label: "Scan" },
     { path: "/dashboard", label: "Dashboard" },
     { path: "/findings", label: "Findings" },
+    { path: "/historique", label: "Historique" },
   ];
 
   return (
@@ -20,7 +21,7 @@ export function Navigation() {
             <Shield className="w-6 h-6 text-[var(--primary)]" />
             <span className="font-semibold">SecureScan</span>
           </Link>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
             {links.map((link) => (
               <Link
                 key={link.path}
@@ -34,6 +35,16 @@ export function Navigation() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              to="/login"
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                location.pathname === "/login"
+                  ? "bg-[var(--primary)] text-white"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              Connexion
+            </Link>
           </div>
         </div>
       </div>

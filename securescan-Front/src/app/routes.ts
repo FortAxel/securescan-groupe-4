@@ -6,10 +6,16 @@ import { ScanProgress } from "./pages/ScanProgress";
 import { Dashboard } from "./pages/Dashboard";
 import { FindingsList } from "./pages/FindingsList";
 import { FixPreview } from "./pages/FixPreview";
+import { Login } from "./pages/Login";
+import { ReportHistory } from "./pages/ReportHistory";
 import { Layout } from "./components/Layout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export const router = createBrowserRouter([
+  {
+    path: "/login",
+    Component: Login,
+  },
   {
     path: "/",
     Component: Layout,
@@ -38,6 +44,10 @@ export const router = createBrowserRouter([
       {
         path: "fix/:id",
         Component: FixPreview,
+      },
+      {
+        path: "historique",
+        Component: ReportHistory,
       },
     ],
   },
