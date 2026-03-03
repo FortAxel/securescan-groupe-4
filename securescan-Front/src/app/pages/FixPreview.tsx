@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useLocation } from "react-router";
+import { useParams, useNavigate, useLocation, Navigate } from "react-router";
 import { useEffect } from "react";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -19,7 +19,7 @@ export function FixPreview() {
 
   const vulnerability = mockVulnerabilities.find((v) => v.id === id);
 
-  if (projectId === null) return null;
+  if (projectId === null) return <Navigate to="/submit" replace />;
 
   if (!vulnerability) {
     return (

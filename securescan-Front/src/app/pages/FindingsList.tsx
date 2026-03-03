@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { useNavigate, useLocation, Navigate } from "react-router";
 import { getCurrentProjectId } from "../lib/flow";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -66,7 +66,7 @@ export function FindingsList() {
     return matchesSearch && matchesSeverity && matchesOwasp && matchesTool;
   });
 
-  if (projectId === null) return null;
+  if (projectId === null) return <Navigate to="/submit" replace />;
 
   return (
     <div className="min-h-screen p-6">
@@ -197,7 +197,8 @@ export function FindingsList() {
       {/* Finding Details Drawer */}
       <Sheet open={!!selectedVuln} onOpenChange={() => setSelectedVuln(null)}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-          {selectedVuln && (
+          <div key="sheet-body" className={selectedVuln ? "" : "hidden"} aria-hidden={!selectedVuln}>
+          {selectedVuln ? (
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center justify-between">
@@ -275,7 +276,10 @@ export function FindingsList() {
                 </div>
               </div>
             </>
+          ) : (
+            <span aria-hidden />
           )}
+          </div>
         </SheetContent>
       </Sheet>
     </div>

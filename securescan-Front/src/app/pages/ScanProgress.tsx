@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { useEffect, useState, useRef } from "react";
+import { useNavigate, useLocation, Navigate } from "react-router";
 import { Card } from "../components/ui/card";
 import { Shield, CheckCircle2, Loader2 } from "lucide-react";
 import { getCurrentProjectId } from "../lib/flow";
@@ -14,10 +14,18 @@ export function ScanProgress() {
   const navigate = useNavigate();
   const location = useLocation();
   const projectId = getCurrentProjectId(location);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     if (projectId === null) navigate("/submit", { replace: true });
   }, [projectId, navigate]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const [steps, setSteps] = useState<ScanStep[]>([
     { id: "1", label: "Clone repository", status: "completed" },
@@ -57,9 +65,14 @@ export function ScanProgress() {
               return newSteps;
             });
 
-            // Navigate to dashboard when all steps are complete
+            // Navigate to dashboard when all steps are complete (décalé pour éviter insertBefore/removeChild)
             if (index === steps.length - 1) {
-              setTimeout(() => navigate("/dashboard"), 1000);
+              const t = setTimeout(() => {
+                requestAnimationFrame(() => {
+                  if (mountedRef.current) navigate("/dashboard");
+                });
+              }, 1000);
+              timers.push(t);
             }
           }, stepDurations[index]);
           timers.push(completeTimer);
@@ -71,7 +84,7 @@ export function ScanProgress() {
     return () => timers.forEach(clearTimeout);
   }, [navigate]);
 
-  if (projectId === null) return null;
+  if (projectId === null) return <Navigate to="/submit" replace />;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -90,25 +103,23 @@ export function ScanProgress() {
           <div className="space-y-6">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-start gap-4">
-                <div className="relative">
-                  {step.status === "completed" && (
+                <div className="relative w-6 h-6 shrink-0">
+                  <span className={step.status === "completed" ? "inline-flex" : "hidden"} key={`${step.id}-done`}>
                     <CheckCircle2 className="w-6 h-6 text-green-600" />
-                  )}
-                  {step.status === "in-progress" && (
+                  </span>
+                  <span className={step.status === "in-progress" ? "inline-flex" : "hidden"} key={`${step.id}-progress`}>
                     <Loader2 className="w-6 h-6 text-[var(--primary)] animate-spin" />
-                  )}
-                  {step.status === "pending" && (
-                    <div className="w-6 h-6 rounded-full border-2 border-gray-300" />
-                  )}
-                  {index < steps.length - 1 && (
-                    <div
-                      className={`absolute left-1/2 top-8 w-0.5 h-8 -translate-x-1/2 ${
-                        step.status === "completed"
-                          ? "bg-green-600"
-                          : "bg-gray-300"
+                  </span>
+                  <span className={step.status === "pending" ? "inline-flex" : "hidden"} key={`${step.id}-pending`}>
+                    <span className="block w-6 h-6 rounded-full border-2 border-gray-300" />
+                  </span>
+                  <span className={index < steps.length - 1 ? "inline-block absolute left-1/2 top-8 w-0.5 h-8 -translate-x-1/2" : "hidden"} key={`${step.id}-connector`}>
+                    <span
+                      className={`block w-full h-full ${
+                        step.status === "completed" ? "bg-green-600" : "bg-gray-300"
                       }`}
                     />
-                  )}
+                  </span>
                 </div>
                 <div className="flex-1 pt-0.5">
                   <p
