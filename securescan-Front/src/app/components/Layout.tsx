@@ -1,11 +1,14 @@
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { Navigation } from "./Navigation";
 
 export function Layout() {
+  const { pathname } = useLocation();
   return (
-    <div>
+    <div className="layout-root">
       <Navigation />
-      <Outlet />
+      <div className="outlet-container" key={pathname}>
+        <Outlet />
+      </div>
     </div>
   );
 }

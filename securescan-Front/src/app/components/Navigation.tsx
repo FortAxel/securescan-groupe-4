@@ -8,30 +8,21 @@ export function Navigation() {
   const navigate = useNavigate();
   const hasProject = hasCurrentProject();
 
-  const handleNewAnalysis = () => {
-    clearCurrentProjectId();
+  const handleSubmitOrNew = () => {
+    if (hasProject) clearCurrentProjectId();
     navigate("/submit", { replace: true });
   };
 
-  const baseLinks = [
-    { path: "/", label: "Accueil" },
-    { path: "/submit", label: "Soumettre" },
-  ];
+  const submitLabel = hasProject ? "Nouvelle analyse" : "Soumettre";
+  const isSubmitActive = location.pathname === "/submit";
+  const loggedIn = isLoggedIn();
 
-  const afterSubmitLinks = hasProject
-    ? [
-        { path: "/scan", label: "Scan" },
-        { path: "/dashboard", label: "Tableau de bord" },
-        { path: "/findings", label: "Vulnérabilités" },
-      ]
-    : [];
+  const linkClass = (path: string) =>
+    `px-3 py-2 rounded-lg text-sm transition-colors ${
+      location.pathname === path ? "bg-[var(--primary)] text-white" : "text-muted-foreground hover:bg-accent"
+    }`;
 
-  const historyLink = isLoggedIn()
-    ? [{ path: "/historique", label: "Historique" }]
-    : [];
-
-  const links = [...baseLinks, ...afterSubmitLinks, ...historyLink];
-
+  // Structure fixe : toujours les mêmes slots pour éviter l’erreur removeChild
   return (
     <nav className="bg-white border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
@@ -41,63 +32,65 @@ export function Navigation() {
             <span className="font-semibold">SecureScan</span>
           </Link>
           <div className="flex items-center gap-1 flex-wrap">
-            {links.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
+            <span key="nav-accueil" className="inline-flex">
+              <Link to="/" className={linkClass("/")}>
+                Accueil
+              </Link>
+            </span>
+            <span key="nav-submit" className="inline-flex">
+              <button
+                type="button"
+                onClick={handleSubmitOrNew}
                 className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                  location.pathname === link.path
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-muted-foreground hover:bg-accent"
+                  isSubmitActive ? "bg-[var(--primary)] text-white" : "text-muted-foreground hover:bg-accent"
                 }`}
               >
-                {link.label}
+                {submitLabel}
+              </button>
+            </span>
+            <span key="nav-dashboard" className={hasProject ? "inline-flex" : "hidden"}>
+              <Link to="/dashboard" className={linkClass("/dashboard")}>
+                Tableau de bord
               </Link>
-            ))}
-            {hasProject && (
-              <button
-                type="button"
-                onClick={handleNewAnalysis}
-                className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
-              >
-                Nouvelle analyse
-              </button>
-            )}
-            {isLoggedIn() ? (
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  navigate("/");
-                }}
-                className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
-              >
-                Déconnexion
-              </button>
-            ) : (
-              <>
-                <Link
-                  to="/inscription"
-                  className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                    location.pathname === "/inscription"
-                      ? "bg-[var(--primary)] text-white"
-                      : "text-muted-foreground hover:bg-accent"
-                  }`}
+            </span>
+            <span key="nav-findings" className={hasProject ? "inline-flex" : "hidden"}>
+              <Link to="/findings" className={linkClass("/findings")}>
+                Vulnérabilités
+              </Link>
+            </span>
+            <span key="nav-historique" className={loggedIn ? "inline-flex" : "hidden"}>
+              <Link to="/historique" className={linkClass("/historique")}>
+                Historique
+              </Link>
+            </span>
+            <span key="nav-profil" className={loggedIn ? "inline-flex" : "hidden"}>
+              <Link to="/profil" className={linkClass("/profil")}>
+                Profil
+              </Link>
+            </span>
+            <span key="nav-auth-left" className="inline-flex">
+              {loggedIn ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    navigate("/");
+                  }}
+                  className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
                 >
+                  Déconnexion
+                </button>
+              ) : (
+                <Link to="/inscription" className={linkClass("/inscription")}>
                   Inscription
                 </Link>
-                <Link
-                  to="/login"
-                  className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                    location.pathname === "/login"
-                      ? "bg-[var(--primary)] text-white"
-                      : "text-muted-foreground hover:bg-accent"
-                  }`}
-                >
-                  Connexion
-                </Link>
-              </>
-            )}
+              )}
+            </span>
+            <span key="nav-auth-right" className={loggedIn ? "hidden" : "inline-flex"}>
+              <Link to="/login" className={linkClass("/login")}>
+                Connexion
+              </Link>
+            </span>
           </div>
         </div>
       </div>
