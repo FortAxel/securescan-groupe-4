@@ -83,11 +83,13 @@ export function Inscription() {
 
           <Card className="p-8 shadow-xl">
             <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                  {error}
-                </div>
-              )}
+              <div
+                key="inscription-error"
+                className={error ? "p-3 rounded-lg bg-destructive/10 text-destructive text-sm" : "hidden"}
+                aria-hidden={!error}
+              >
+                {error ?? ""}
+              </div>
 
               <div>
                 <label className="block mb-2 text-sm">Adresse email</label>

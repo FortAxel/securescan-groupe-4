@@ -119,15 +119,15 @@ export function SubmitProject() {
 
         <Card className="p-8 shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
+            <div key="submit-error" className={error ? "" : "hidden"} aria-hidden={!error}>
               <Alert variant="destructive" className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 <div>
                   <AlertTitle>Erreur</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>{error ?? ""}</AlertDescription>
                 </div>
               </Alert>
-            )}
+            </div>
 
             <div>
               <label className="block mb-2 text-sm font-medium">URL du dépôt Git</label>
@@ -161,14 +161,14 @@ export function SubmitProject() {
                 className="hidden"
                 onChange={handleFileChange}
               />
-              {zipFile ? (
+              <div key="zip-preview" className={zipFile ? "" : "hidden"} aria-hidden={!zipFile}>
                 <div className="border-2 border-green-200 bg-green-50/50 rounded-lg p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Upload className="w-6 h-6 text-green-600 shrink-0" />
                     <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">{zipFile.name}</p>
+                      <p className="font-medium text-foreground truncate">{zipFile?.name ?? ""}</p>
                       <p className="text-sm text-muted-foreground">
-                        {(zipFile.size / 1024).toFixed(1)} Ko
+                        {zipFile ? `${(zipFile.size / 1024).toFixed(1)} Ko` : ""}
                       </p>
                     </div>
                   </div>
@@ -176,23 +176,24 @@ export function SubmitProject() {
                     Retirer
                   </Button>
                 </div>
-              ) : (
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                    isDragging
-                      ? "border-[var(--primary)] bg-[var(--primary)]/5"
-                      : "border-border hover:border-[var(--primary)]/50"
-                  }`}
-                >
-                  <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm font-medium mb-1">Glissez-déposez votre fichier ZIP</p>
-                  <p className="text-xs text-muted-foreground">ou cliquez pour parcourir</p>
-                </div>
-              )}
+              </div>
+              <div
+                key="zip-dropzone"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={zipFile ? "hidden" : `border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                  isDragging
+                    ? "border-[var(--primary)] bg-[var(--primary)]/5"
+                    : "border-border hover:border-[var(--primary)]/50"
+                }`}
+                aria-hidden={!!zipFile}
+              >
+                <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-sm font-medium mb-1">Glissez-déposez votre fichier ZIP</p>
+                <p className="text-xs text-muted-foreground">ou cliquez pour parcourir</p>
+              </div>
             </div>
 
             <Button
