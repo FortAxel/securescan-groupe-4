@@ -187,3 +187,14 @@ htmlcov/
 test-repo/
 
 scan-results.json
+# =========================
+# Temp repo dir
+# =========================
+
+# Temp directories content
+tmp/uploads/*
+tmp/repos/*
+
+# Keep the folders
+!tmp/uploads/.gitkeep
+!tmp/repos/.gitkeep
