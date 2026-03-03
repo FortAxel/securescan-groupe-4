@@ -11,6 +11,19 @@ interface LoginResponse {
 
 interface RegisterResponse extends LoginResponse {}
 
+/** Utilisateur renvoyé par GET /api/auth/me */
+export interface CurrentUser {
+  id: number;
+  email: string;
+  username: string;
+  createdAt?: string;
+}
+
+export async function getCurrentUser(): Promise<CurrentUser> {
+  const { data } = await apiClient.get<{ user: CurrentUser }>("/api/auth/me");
+  return data.user;
+}
+
 export async function login(
   email: string,
   password: string

@@ -9,6 +9,7 @@ import { FixPreview } from "./pages/FixPreview";
 import { Login } from "./pages/Login";
 import { Inscription } from "./pages/Inscription";
 import { ReportHistory } from "./pages/ReportHistory";
+import { Profile } from "./pages/Profile";
 import { Layout } from "./components/Layout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
       {
         path: "historique",
         Component: ReportHistory,
+      },
+      {
+        path: "profil",
+        Component: Profile,
       },
     ],
   },
