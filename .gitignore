@@ -185,3 +185,5 @@ htmlcov/
 # =========================
 
 test-repo/
+
+scan-results.json
