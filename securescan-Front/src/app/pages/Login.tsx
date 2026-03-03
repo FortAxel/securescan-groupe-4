@@ -6,6 +6,7 @@ import { Card } from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
 import { Shield, Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { setLoggedIn } from "../lib/auth";
+import { login as apiLogin } from "../api/auth";
 
 export function Login() {
   const navigate = useNavigate();
@@ -13,14 +14,34 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoggedIn({
-      email,
-      username: email.split("@")[0] || "utilisateur",
-    });
-    navigate("/");
+    setError(null);
+    setLoading(true);
+    try {
+      await apiLogin(email, password);
+      navigate("/");
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { error?: string }; status?: number }; code?: string };
+      const msg = ax.response?.data?.error ?? null;
+      const isNetworkError = !ax.response || ax.code === "ERR_NETWORK";
+      if (msg) {
+        setError(msg);
+      } else if (isNetworkError) {
+        setLoggedIn({
+          email,
+          username: email.split("@")[0] || "utilisateur",
+        });
+        navigate("/");
+      } else {
+        setError("Une erreur est survenue.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,6 +79,11 @@ export function Login() {
 
           <Card className="p-8 shadow-xl">
             <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="block mb-2 text-sm">Adresse email</label>
                 <div className="relative">
@@ -126,8 +152,9 @@ export function Login() {
               <Button
                 type="submit"
                 className="w-full h-11 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+                disabled={loading}
               >
-                Se connecter
+                {loading ? "Connexion..." : "Se connecter"}
               </Button>
             </form>
 

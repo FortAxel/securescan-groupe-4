@@ -5,6 +5,7 @@ import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Shield, Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { setLoggedIn } from "../lib/auth";
+import { register as apiRegister } from "../api/auth";
 
 export function Inscription() {
   const navigate = useNavigate();
@@ -15,8 +16,9 @@ export function Inscription() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -29,8 +31,25 @@ export function Inscription() {
       return;
     }
 
-    setLoggedIn({ email, username: username.trim() || email.split("@")[0] || "utilisateur" });
-    navigate("/");
+    setLoading(true);
+    try {
+      await apiRegister(email, username.trim() || email.split("@")[0] || "user", password);
+      navigate("/");
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { error?: string }; status?: number }; code?: string };
+      const msg = ax.response?.data?.error ?? null;
+      const isNetworkError = !ax.response || ax.code === "ERR_NETWORK";
+      if (msg) {
+        setError(msg);
+      } else if (isNetworkError) {
+        setLoggedIn({ email, username: username.trim() || email.split("@")[0] || "utilisateur" });
+        navigate("/");
+      } else {
+        setError("Une erreur est survenue.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -158,8 +177,9 @@ export function Inscription() {
               <Button
                 type="submit"
                 className="w-full h-11 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+                disabled={loading}
               >
-                S&apos;inscrire
+                {loading ? "Inscription..." : "S'inscrire"}
               </Button>
             </form>
 
