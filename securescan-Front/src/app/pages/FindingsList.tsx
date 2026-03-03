@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
+import { getCurrentProjectId } from "../lib/flow";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -31,6 +32,12 @@ import {
 export function FindingsList() {
   const navigate = useNavigate();
   const location = useLocation();
+  const projectId = getCurrentProjectId(location);
+
+  useEffect(() => {
+    if (projectId === null) navigate("/submit", { replace: true });
+  }, [projectId, navigate]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [owaspFilter, setOwaspFilter] = useState<string>("all");
@@ -58,6 +65,8 @@ export function FindingsList() {
 
     return matchesSearch && matchesSeverity && matchesOwasp && matchesTool;
   });
+
+  if (projectId === null) return null;
 
   return (
     <div className="min-h-screen p-6">

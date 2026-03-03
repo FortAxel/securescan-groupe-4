@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { isLoggedIn } from "../lib/auth";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -28,11 +29,18 @@ type SortDirection = "asc" | "desc";
 
 export function ReportHistory() {
   const navigate = useNavigate();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [allowed, setAllowed] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn()) navigate("/login", { replace: true });
+    else setAllowed(true);
+  }, [navigate]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -89,6 +97,8 @@ export function ReportHistory() {
   const totalVulnerabilities = mockScanReports
     .filter((r) => r.status === "completed")
     .reduce((sum, r) => sum + r.totalVulnerabilities, 0);
+
+  if (!allowed) return null;
 
   return (
     <div className="min-h-screen p-6">

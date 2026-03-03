@@ -1,15 +1,25 @@
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
+import { useEffect } from "react";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { mockVulnerabilities } from "../data/mockData";
+import { getCurrentProjectId } from "../lib/flow";
 
 export function FixPreview() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const projectId = getCurrentProjectId(location);
+
+  useEffect(() => {
+    if (projectId === null) navigate("/submit", { replace: true });
+  }, [projectId, navigate]);
 
   const vulnerability = mockVulnerabilities.find((v) => v.id === id);
+
+  if (projectId === null) return null;
 
   if (!vulnerability) {
     return (
