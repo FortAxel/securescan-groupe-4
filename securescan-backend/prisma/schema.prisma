@@ -1,0 +1,169 @@
+// ============================================================
+// SecureScan — Prisma Schema
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────
+
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  username  String    @unique
+  password  String    // hashed
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  projects  Project[]
+
+  @@map("users")
+}
+
+// ─── Project ─────────────────────────────────────────────────
+
+model Project {
+  id          Int           @id @default(autoincrement())
+  userId      Int
+  name        String
+  sourceType  SourceType
+  sourceUrl   String?       // Git repo URL
+  localPath   String?       // Path after clone/extract
+  language    String?       // Auto-detected language
+  framework   String?       // Auto-detected framework
+  status      ProjectStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analyses    Analysis[]
+
+  @@map("projects")
+}
+
+// ─── Analysis ────────────────────────────────────────────────
+
+model Analysis {
+  id           Int            @id @default(autoincrement())
+  projectId    Int
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  score        Int?           // 0-100
+  grade        String?        // A/B/C/D/F
+  status       AnalysisStatus @default(PENDING)
+  errorMessage String?        @db.Text
+  createdAt    DateTime       @default(now())
+
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  findings     Finding[]
+  fixBranches  FixBranch[]
+
+  @@map("analyses")
+}
+
+// ─── Finding ─────────────────────────────────────────────────
+
+model Finding {
+  id            Int           @id @default(autoincrement())
+  analysisId    Int
+  tool          ToolName
+  severity      Severity
+  owaspCategory OwaspCategory?
+  title         String
+  description   String?       @db.Text
+  filePath      String?
+  lineStart     Int?
+  lineEnd       Int?
+  rawOutput     Json?         // Raw tool output
+  fixStatus     FixStatus     @default(PENDING)
+  fixTemplate   String?       @db.Text  // Template-based fix
+  fixAi         String?       @db.Text  // AI-generated fix (bonus)
+  createdAt     DateTime      @default(now())
+
+  analysis      Analysis      @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@map("findings")
+}
+
+// ─── Fix Branch ──────────────────────────────────────────────
+
+model FixBranch {
+  id          Int             @id @default(autoincrement())
+  analysisId  Int
+  branchName  String
+  pushStatus  PushStatus      @default(PENDING)
+  reportPath  String?
+  createdAt   DateTime        @default(now())
+
+  analysis    Analysis        @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@map("fix_branches")
+}
+
+// ─── Enums ───────────────────────────────────────────────────
+
+enum SourceType {
+  GIT
+  ZIP
+}
+
+enum ProjectStatus {
+  PENDING
+  CLONING
+  ANALYZING
+  DONE
+  ERROR
+}
+
+enum AnalysisStatus {
+  PENDING
+  RUNNING
+  DONE
+  ERROR
+}
+
+enum ToolName {
+  SEMGREP
+  NPM_AUDIT
+  TRUFFLEHOG
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum OwaspCategory {
+  A01
+  A02
+  A03
+  A04
+  A05
+  A06
+  A07
+  A08
+  A09
+  A10
+}
+
+enum FixStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  APPLIED
+}
+
+enum PushStatus {
+  PENDING
+  PUSHED
+  ERROR
+}

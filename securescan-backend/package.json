@@ -1,0 +1,36 @@
+{
+  "name": "securescan-groupe-4-backend",
+  "version": "1.0.0",
+  "description": "Secure scan",
+  "main": "server.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.2",
+    "bcrypt": "^6.0.0",
+    "eslint-plugin-security": "^4.0.0",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^6.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "dev": "nodemon --env-file=.env server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FortAxel/securescan-groupe-4.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/FortAxel/securescan-groupe-4/issues"
+  },
+  "homepage": "https://github.com/FortAxel/securescan-groupe-4#readme"
+}
