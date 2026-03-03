@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { Card } from "../components/ui/card";
 import { Shield, CheckCircle2, Loader2 } from "lucide-react";
+import { getCurrentProjectId } from "../lib/flow";
 
 interface ScanStep {
   id: string;
@@ -11,6 +12,13 @@ interface ScanStep {
 
 export function ScanProgress() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const projectId = getCurrentProjectId(location);
+
+  useEffect(() => {
+    if (projectId === null) navigate("/submit", { replace: true });
+  }, [projectId, navigate]);
+
   const [steps, setSteps] = useState<ScanStep[]>([
     { id: "1", label: "Clone repository", status: "completed" },
     { id: "2", label: "Detect language", status: "completed" },
@@ -62,6 +70,8 @@ export function ScanProgress() {
 
     return () => timers.forEach(clearTimeout);
   }, [navigate]);
+
+  if (projectId === null) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
