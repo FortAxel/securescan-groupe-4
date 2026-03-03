@@ -8,9 +8,6 @@ import { existsSync, mkdirSync } from 'fs';
 require('dotenv').config();
 
 import authRoutes from './src/routes/auth.routes';
-import projectRoutes from './src/routes/projects.routes';
-import analysisRoutes from './src/routes/analysis.routes';
-import reportRoutes from './src/routes/reports.routes';
 
 const app = express();
 
@@ -38,10 +35,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/auth',      authRoutes);
-app.use('/api/projects',  projectRoutes);
-app.use('/api/analysis',  analysisRoutes);
-app.use('/api/reports',   reportRoutes);
+app.use('/api/auth', authRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 
