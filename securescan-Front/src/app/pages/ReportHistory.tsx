@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link, Navigate } from "react-router";
 import { isLoggedIn } from "../lib/auth";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -22,7 +22,8 @@ import {
 import { ScoreBadge } from "../components/ScoreBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { Shield, Search, ArrowUpDown, TrendingUp, TrendingDown, Calendar } from "lucide-react";
-import { mockScanReports } from "../data/scanReports";
+import { getMyScans, type ScanReportFromApi } from "../api/me";
+import { setCurrentProjectId } from "../lib/flow";
 
 type SortField = "date" | "score" | "projectName";
 type SortDirection = "asc" | "desc";
@@ -30,17 +31,32 @@ type SortDirection = "asc" | "desc";
 export function ReportHistory() {
   const navigate = useNavigate();
 
+  const [scans, setScans] = useState<ScanReportFromApi[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [allowed, setAllowed] = useState(false);
+  const [allowed] = useState(() => isLoggedIn());
 
   useEffect(() => {
     if (!isLoggedIn()) navigate("/login", { replace: true });
-    else setAllowed(true);
   }, [navigate]);
+
+  useEffect(() => {
+    if (!allowed) return;
+    setLoading(true);
+    setLoadError(null);
+    getMyScans()
+      .then(setScans)
+      .catch((err) => {
+        setScans([]);
+        setLoadError(err?.message ?? "Impossible de charger l'historique.");
+      })
+      .finally(() => setLoading(false));
+  }, [allowed]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -51,7 +67,10 @@ export function ReportHistory() {
     }
   };
 
-  const filteredAndSortedReports = mockScanReports
+  const reportDate = (r: ScanReportFromApi) =>
+    r.createdAt ? new Date(r.createdAt).getTime() : new Date(r.date).getTime();
+
+  const filteredAndSortedReports = scans
     .filter((report) => {
       const matchesSearch = report.projectName
         .toLowerCase()
@@ -60,49 +79,54 @@ export function ReportHistory() {
       const matchesStatus =
         statusFilter === "all" || report.status === statusFilter;
 
+      const ts = reportDate(report);
       const matchesDate =
         dateFilter === "all" ||
         (dateFilter === "this-week" &&
-          new Date(report.date).getTime() >
-            Date.now() - 7 * 24 * 60 * 60 * 1000) ||
+          ts > Date.now() - 7 * 24 * 60 * 60 * 1000) ||
         (dateFilter === "this-month" &&
-          new Date(report.date).getMonth() === new Date().getMonth());
+          new Date(ts).getMonth() === new Date().getMonth());
 
       return matchesSearch && matchesStatus && matchesDate;
     })
     .sort((a, b) => {
       let comparison = 0;
-
       if (sortField === "date") {
-        comparison =
-          new Date(a.date).getTime() - new Date(b.date).getTime();
+        comparison = reportDate(a) - reportDate(b);
       } else if (sortField === "score") {
         comparison = a.score - b.score;
       } else if (sortField === "projectName") {
         comparison = a.projectName.localeCompare(b.projectName);
       }
-
       return sortDirection === "asc" ? comparison : -comparison;
     });
 
   // Calculate summary stats
-  const completedScans = mockScanReports.filter(
+  const completedScans = scans.filter(
     (r) => r.status === "completed"
   ).length;
   const avgScore =
-    mockScanReports
+    scans
       .filter((r) => r.status === "completed")
       .reduce((sum, r) => sum + r.score, 0) /
     (completedScans || 1);
-  const totalVulnerabilities = mockScanReports
+  const totalVulnerabilities = scans
     .filter((r) => r.status === "completed")
     .reduce((sum, r) => sum + r.totalVulnerabilities, 0);
 
-  if (!allowed) return null;
+  if (!allowed) return <Navigate to="/login" replace />;
 
   return (
     <div className="min-h-screen p-6">
-      <div className="max-w-7xl mx-auto">
+      <div
+        key="history-loading"
+        className={loading ? "fixed inset-0 z-10 flex items-center justify-center bg-background/80" : "hidden"}
+        aria-hidden={!loading}
+        aria-busy={loading}
+      >
+        <p className="text-muted-foreground">Chargement de l&apos;historique...</p>
+      </div>
+      <div className={loading ? "opacity-0 pointer-events-none select-none" : ""}>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -114,12 +138,17 @@ export function ReportHistory() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={() => navigate("/submit")}
-            className="bg-[var(--primary)] hover:bg-[var(--primary)]/90"
-          >
-            Nouveau scan
+          <Button asChild className="bg-[var(--primary)] hover:bg-[var(--primary)]/90">
+            <Link to="/submit">Nouveau scan</Link>
           </Button>
+        </div>
+
+        <div
+          key="history-loadError"
+          className={loadError ? "mb-6 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800" : "hidden"}
+          aria-hidden={!loadError}
+        >
+          L’historique des scans sera affiché ici lorsque le backend exposera les données de votre compte. En attendant, vous pouvez lancer une analyse depuis Soumettre.
         </div>
 
         {/* Summary Stats */}
@@ -130,7 +159,7 @@ export function ReportHistory() {
                 <p className="text-sm text-muted-foreground mb-1">
                   Total des scans
                 </p>
-                <p className="text-2xl">{mockScanReports.length}</p>
+                <p className="text-2xl">{scans.length}</p>
               </div>
               <Calendar className="w-8 h-8 text-blue-500" />
             </div>
@@ -343,33 +372,35 @@ export function ReportHistory() {
                       <StatusBadge status={report.status} />
                     </TableCell>
                     <TableCell className="text-right">
-                      {report.status === "completed" && (
+                      <span className={report.status === "completed" ? "inline-flex" : "hidden"} key={`${report.id}-completed`}>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate("/dashboard")}
+                          onClick={() => {
+                            setCurrentProjectId(report.projectId);
+                            navigate("/dashboard");
+                          }}
                         >
                           Voir le rapport
                         </Button>
-                      )}
-                      {report.status === "running" && (
+                      </span>
+                      <span className={report.status === "running" ? "inline-flex" : "hidden"} key={`${report.id}-running`}>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate("/scan")}
+                          onClick={() => {
+                            setCurrentProjectId(report.projectId);
+                            navigate("/scan");
+                          }}
                         >
                           Voir la progression
                         </Button>
-                      )}
-                      {report.status === "failed" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600"
-                        >
+                      </span>
+                      <span className={report.status === "failed" ? "inline-flex" : "hidden"} key={`${report.id}-failed`}>
+                        <Button variant="ghost" size="sm" className="text-red-600">
                           Réessayer
                         </Button>
-                      )}
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -377,11 +408,26 @@ export function ReportHistory() {
             </Table>
           </div>
 
-          {filteredAndSortedReports.length === 0 && (
-            <div className="p-12 text-center">
-              <p className="text-muted-foreground">Aucun scan trouvé pour ces critères</p>
-            </div>
-          )}
+          <div
+            key="history-empty"
+            className={filteredAndSortedReports.length === 0 && !loading ? "p-12 text-center space-y-2" : "hidden"}
+            aria-hidden={!(filteredAndSortedReports.length === 0 && !loading)}
+          >
+            <p className="text-muted-foreground">
+              {scans.length === 0 && !loadError
+                ? "Aucun scan pour le moment. Lancez une analyse depuis Soumettre."
+                : "Aucun scan trouvé pour ces critères."}
+            </p>
+            <span className={scans.length === 0 && !loadError ? "inline-flex" : "hidden"}>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/submit")}
+                className="mt-2"
+              >
+                Lancer un scan
+              </Button>
+            </span>
+          </div>
         </Card>
       </div>
     </div>
