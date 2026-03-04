@@ -39,17 +39,19 @@ function totalFromSummary(s: SeverityCounts & { info?: number }): number {
   return (s.critical ?? 0) + (s.high ?? 0) + (s.medium ?? 0) + (s.low ?? 0) + (s.info ?? 0);
 }
 
+const emptySummary: SeverityCounts = {
+  grade: "—",
+  score: 0,
+  critical: 0,
+  high: 0,
+  medium: 0,
+  low: 0,
+  totalVulnerabilities: 0,
+};
+
 function useFindingsData(projectId: number | undefined, analysisId: number | undefined) {
-  const [summary, setSummary] = useState<SeverityCounts>({
-    grade: mockSecurityScore.grade,
-    score: mockSecurityScore.score,
-    critical: mockSecurityScore.critical,
-    high: mockSecurityScore.high,
-    medium: mockSecurityScore.medium,
-    low: mockSecurityScore.low,
-    totalVulnerabilities: mockSecurityScore.totalVulnerabilities,
-  });
-  const [findings, setFindings] = useState(mockVulnerabilities);
+  const [summary, setSummary] = useState<SeverityCounts>(emptySummary);
+  const [findings, setFindings] = useState<typeof mockVulnerabilities>([]);
   const [loading, setLoading] = useState(!!(projectId ?? analysisId));
   const [error, setError] = useState<string | null>(null);
 

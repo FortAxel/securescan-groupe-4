@@ -23,6 +23,7 @@ export async function startProjectScan(params: {
   const { data } = await apiClient.post<StartScanResponse>(
     "/api/projects",
     {
+      sourceUrl: params.url.trim(),
       url: params.url.trim(),
       name: params.name?.trim() || undefined,
     },

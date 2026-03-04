@@ -7,6 +7,8 @@ import {
   updateAnalysis,
   updateProject,
   createFindings,
+  findProjectByIdAndUser,
+  findFindingsByAnalysis,
 } from '../services/db/databaseManager.js';
 import { runAllScans } from '../services/scanner.service.js';
 
@@ -34,13 +36,13 @@ function toPrismaOwasp(val) {
 const startScan = async (req, res, next) => {
   try {
     const userId = req.userId;
-    const { name, sourceUrl } = req.body;
-
-    if (!sourceUrl || typeof sourceUrl !== 'string' || !sourceUrl.trim()) {
-      return res.status(400).json({ error: 'sourceUrl is required (Git clone URL)' });
+    const { name, sourceUrl, url } = req.body;
+    const rawUrl = sourceUrl ?? url;
+    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
+      return res.status(400).json({ error: 'sourceUrl or url is required (Git clone URL)' });
     }
 
-    const gitUrl = sourceUrl.trim();
+    const gitUrl = rawUrl.trim();
     if (!/^https?:\/\/|^git@/i.test(gitUrl)) {
       return res.status(400).json({ error: 'Invalid Git URL' });
     }
@@ -137,4 +139,48 @@ const startScan = async (req, res, next) => {
   }
 };
 
-export { startScan };
+/**
+ * GET /api/projects/:projectId/findings
+ * Returns findings of the latest analysis for the project (same shape as front getProjectFindings).
+ */
+const getProjectFindings = async (req, res, next) => {
+  try {
+    const projectId = Number(req.params.projectId);
+    const project = await findProjectByIdAndUser(projectId, req.userId);
+    if (!project || !project.analyses?.length) {
+      return res.status(404).json({ error: 'Project or analysis not found' });
+    }
+    const latestAnalysis = project.analyses[0];
+    const findings = await findFindingsByAnalysis(latestAnalysis.id);
+    const summary = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+    findings.forEach(f => {
+      const s = (f.severity || '').toLowerCase();
+      if (summary.hasOwnProperty(s)) summary[s]++;
+    });
+    const total = findings.length;
+    res.json({
+      grade: latestAnalysis.grade ?? 'N/A',
+      score: latestAnalysis.score ?? 0,
+      critical: summary.critical,
+      high: summary.high,
+      medium: summary.medium,
+      low: summary.low,
+      totalVulnerabilities: total,
+      findings: findings.map(f => ({
+        id: f.id,
+        tool: f.tool,
+        severity: (f.severity || 'LOW').toLowerCase(),
+        owaspCategory: f.owaspCategory,
+        title: f.title || f.description || 'Finding',
+        description: f.description,
+        filePath: f.filePath,
+        lineStart: f.lineStart,
+        lineEnd: f.lineEnd,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export { startScan, getProjectFindings };
