@@ -9,11 +9,8 @@ import 'dotenv/config';
 
 import authRoutes from './routes/auth.routes.js';
 import meRoutes from './routes/me.routes.js';
-import projectRoutes from './routes/projects.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
-import correctionRoutes from './routes/correction.routes.js';
 import projectRoutes from './routes/projects.routes.js';
-import analysisRoutes from './routes/analysis.routes.js';
 import githubAuthRoutes from './routes/githubAuth.routes.js';
 import correctionRoutes from './routes/correction.routes.js'
 
@@ -44,6 +41,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/auth',      authRoutes);
+app.use('/api/me',  meRoutes);
 app.use('/api/projects',  projectRoutes);
 app.use('/api/analysis',  analysisRoutes);
 app.use('/api/githubAuth',  githubAuthRoutes);
