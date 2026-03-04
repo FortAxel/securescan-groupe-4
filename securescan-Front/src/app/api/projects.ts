@@ -1,6 +1,51 @@
 import { apiClient } from "./client";
 
 /**
+ * Démarrer un vrai scan : POST /api/projects (clone Git + scan + sauvegarde en BDD).
+ */
+export interface StartScanResponse {
+  projectId: number;
+  analysisId: number;
+  projectName: string;
+  status: string;
+  score: number;
+  grade: string;
+  findingsCount: number;
+}
+
+/** Délai max pour le scan (clone + analyse) : 5 minutes. */
+const SCAN_TIMEOUT_MS = 5 * 60 * 1000;
+
+export async function startProjectScan(params: {
+  url: string;
+  name?: string;
+}): Promise<StartScanResponse> {
+  const { data } = await apiClient.post<StartScanResponse>(
+    "/api/projects",
+    {
+      url: params.url.trim(),
+      name: params.name?.trim() || undefined,
+    },
+    { timeout: SCAN_TIMEOUT_MS }
+  );
+  return data;
+}
+
+/**
+ * Upload d’un ZIP : POST /api/projects/upload (si le back expose GET, adapter l’appel).
+ * Retourne analysisId (et projectId) comme le scan Git.
+ */
+export async function uploadProjectZip(file: File): Promise<StartScanResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await apiClient.post<StartScanResponse>("/api/projects/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: SCAN_TIMEOUT_MS,
+  });
+  return data;
+}
+
+/**
  * Sync avec le back : GET /api/projects/:id/findings (à exposer côté back).
  * Si le back renvoie severity/tool en majuscules (CRITICAL, SEMGREP), on normalise.
  */

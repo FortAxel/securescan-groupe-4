@@ -1,11 +1,13 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import { setCurrentProjectId } from "../lib/flow";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Shield, Upload, GitBranch, AlertCircle } from "lucide-react";
+import { Shield, Upload, GitBranch, AlertCircle, Github } from "lucide-react";
+import { getApiBaseUrl } from "../api/client";
+import { uploadProjectZip } from "../api/projects";
+import { redirectToGitHubOAuth } from "../lib/githubAuth";
 
 const GIT_URL_REGEX = /^(https?:\/\/[^\s]+|git@[^\s]+\.git)$/i;
 
@@ -14,9 +16,11 @@ export function SubmitProject() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [gitUrl, setGitUrl] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const hasUrl = gitUrl.trim().length > 0;
   const hasZip = zipFile !== null;
@@ -35,7 +39,7 @@ export function SubmitProject() {
     return null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     const submitError = validateAndGetError();
@@ -43,9 +47,28 @@ export function SubmitProject() {
       setError(submitError);
       return;
     }
-    const projectId = 1;
-    setCurrentProjectId(projectId);
-    navigate("/scan", { state: { projectId } });
+    if (hasZip && zipFile) {
+      setUploading(true);
+      try {
+        const data = await uploadProjectZip(zipFile);
+        setUploading(false);
+        navigate("/dashboard", {
+          state: { projectId: data.projectId, analysisId: data.analysisId },
+          replace: true,
+        });
+      } catch (err: unknown) {
+        setUploading(false);
+        const res = (err as { response?: { status?: number; data?: { error?: string; redirectTo?: string } } })?.response;
+        if (res?.status === 401 && res.data?.redirectTo && res.data?.error === "GitHub account not connected") {
+          redirectToGitHubOAuth(getApiBaseUrl(), res.data.redirectTo);
+          return;
+        }
+        setError((res?.data?.error as string) || (err as Error)?.message || "Erreur lors de l’upload.");
+      }
+      return;
+    }
+    const url = gitUrl.trim();
+    navigate("/scan", { state: { scanning: true, gitUrl: url, name: projectName.trim() || undefined }, replace: true });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -112,9 +135,19 @@ export function SubmitProject() {
             <Shield className="w-12 h-12 text-[var(--primary)]" />
           </div>
           <h1 className="text-3xl mb-2">Nouvelle analyse</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-4">
             Indiquez la source de votre projet pour lancer le scan de sécurité
           </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => redirectToGitHubOAuth(getApiBaseUrl(), "/auth/github")}
+          >
+            <Github className="w-4 h-4" />
+            Connecter GitHub (pour dépôts privés et clone)
+          </Button>
         </div>
 
         <Card className="p-8 shadow-lg">
@@ -129,6 +162,17 @@ export function SubmitProject() {
               </Alert>
             </div>
 
+            <div>
+              <label className="block mb-2 text-sm font-medium">Nom du projet (optionnel)</label>
+              <Input
+                type="text"
+                placeholder="Mon projet"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                className="h-11"
+                disabled={!!zipFile}
+              />
+            </div>
             <div>
               <label className="block mb-2 text-sm font-medium">URL du dépôt Git</label>
               <div className="relative">
@@ -199,9 +243,9 @@ export function SubmitProject() {
             <Button
               type="submit"
               className="w-full h-11 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
-              disabled={!canSubmit}
+              disabled={!canSubmit || uploading}
             >
-              Lancer l&apos;analyse
+              {uploading ? "Envoi en cours…" : "Lancer l'analyse"}
             </Button>
           </form>
         </Card>
