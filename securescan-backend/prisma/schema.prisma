@@ -81,14 +81,29 @@ model Finding {
   lineStart     Int?
   lineEnd       Int?
   rawOutput     Json?         // Raw tool output
-  fixStatus     FixStatus     @default(PENDING)
-  fixTemplate   String?       @db.Text  // Template-based fix
-  fixAi         String?       @db.Text  // AI-generated fix (bonus)
+  corrections   Correction[]
   createdAt     DateTime      @default(now())
 
   analysis      Analysis      @relation(fields: [analysisId], references: [id], onDelete: Cascade)
 
   @@map("findings")
+}
+
+// ─── Correction ─────────────────────────────────────────────
+
+model Correction {
+  id              Int         @id @default(autoincrement())
+  findingId       Int
+  type            CorrectionType
+  originalSnippet String      @db.Text
+  fixedSnippet    String      @db.Text
+  status          CorrectionStatus @default(PENDING)
+  createdAt       DateTime    @default(now())
+  validatedAt     DateTime?
+
+  finding         Finding     @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@map("corrections")
 }
 
 // ─── Fix Branch ──────────────────────────────────────────────
@@ -166,4 +181,18 @@ enum PushStatus {
   PENDING
   PUSHED
   ERROR
+}
+
+enum CorrectionType {
+  SQL_INJECTION
+  XSS
+  SECRET
+  DEPENDENCY
+  PLAINTEXT_PASSWORD
+}
+
+enum CorrectionStatus {
+  PENDING
+  VALIDATED
+  REJECTED
 }

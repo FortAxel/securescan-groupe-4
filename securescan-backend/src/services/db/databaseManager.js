@@ -166,6 +166,59 @@ const updateFinding = (id, data) =>
   prisma.finding.update({ where: { id }, data });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Correction
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Creates and stores a correction for a finding.
+ *
+ * @param {number} findingId
+ * @returns {Promise<Object|null>}
+ */
+const createCorrectionFromFinding = async(findingId,template) => {
+  const finding = await prisma.finding.findUnique({
+    where: { id: findingId } });
+
+  if (!finding) throw new Error("Finding not found");
+
+  return prisma.correction.create({
+    data: {
+      findingId,
+      type: template.type,
+      originalSnippet: template.originalSnippet,
+      fixedSnippet: template.fixedSnippet
+    }
+  });
+}
+
+/**
+ * Returns suggested correction for a finding.
+ *
+ * @param {number} findingId
+ * @returns {Promise<Object|null>}
+ */
+ const getCorrectionByFinding = async(findingId) =>
+  prisma.correction.findFirst({ where: { findingId } });
+
+/**
+ * Marks correction as validated.
+ *
+ * @param {number} findingId
+ * @returns {Promise<Object>}
+ */
+const validateCorrection = async(findingId) => 
+  prisma.correction.updateMany({ where: { findingId }, data: { status: "VALIDATED", validatedAt: new Date()} });
+
+/**
+ * Marks correction as rejected.
+ *
+ * @param {number} findingId
+ * @returns {Promise<Object>}
+ */
+const rejectCorrection = async (findingId) =>
+  prisma.correction.updateMany({ where: { findingId }, data: {status: "REJECTED" } });
+
+// ══════════════════════════════════════════════════════════════════════════════
 // FIX BRANCH
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -207,6 +260,11 @@ export {
   findFindingsByAnalysis,
   findFindingById,
   updateFinding,
+
+  createCorrectionFromFinding,
+  getCorrectionByFinding,
+  validateCorrection,
+  rejectCorrection,
 
   createFixBranch,
   updateFixBranch,
