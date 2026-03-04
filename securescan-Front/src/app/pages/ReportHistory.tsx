@@ -23,7 +23,7 @@ import { ScoreBadge } from "../components/ScoreBadge";
 import { StatusBadge } from "../components/StatusBadge";
 import { Shield, Search, ArrowUpDown, TrendingUp, TrendingDown, Calendar } from "lucide-react";
 import { getMyScans, type ScanReportFromApi } from "../api/me";
-import { setCurrentProjectId } from "../lib/flow";
+import { setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
 
 type SortField = "date" | "score" | "projectName";
 type SortDirection = "asc" | "desc";
@@ -378,7 +378,8 @@ export function ReportHistory() {
                           size="sm"
                           onClick={() => {
                             setCurrentProjectId(report.projectId);
-                            navigate("/dashboard");
+                            setCurrentAnalysisId(Number(report.id));
+                            navigate("/dashboard", { state: { projectId: report.projectId, analysisId: Number(report.id) } });
                           }}
                         >
                           Voir le rapport
@@ -390,7 +391,8 @@ export function ReportHistory() {
                           size="sm"
                           onClick={() => {
                             setCurrentProjectId(report.projectId);
-                            navigate("/scan");
+                            setCurrentAnalysisId(Number(report.id));
+                            navigate("/scan", { state: { projectId: report.projectId, analysisId: Number(report.id) } });
                           }}
                         >
                           Voir la progression

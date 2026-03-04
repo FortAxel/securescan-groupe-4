@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router";
-import { getCurrentProjectId } from "../lib/flow";
+import { getCurrentProjectId, getCurrentAnalysisId, setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
+import { getAnalysisResults } from "../api/analysis";
+import { getProjectFindings } from "../api/projects";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -21,125 +23,198 @@ import {
 } from "../components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { SeverityBadge } from "../components/SeverityBadge";
-import { Shield, Search, ArrowLeft, ExternalLink, X } from "lucide-react";
-import {
-  mockVulnerabilities,
-  owaspCategories,
-  scanTools,
-  Vulnerability,
-} from "../data/mockData";
+import { Shield, Search, ArrowLeft, FileCode, Wrench, ChevronRight, AlertTriangle } from "lucide-react";
+import { owaspCategories, scanTools } from "../data/mockData";
+
+type FindingItem = {
+  id: string;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  owaspCategory: string;
+  file: string;
+  line: number;
+  tool: string;
+  title: string;
+  description: string;
+};
 
 export function FindingsList() {
   const navigate = useNavigate();
   const location = useLocation();
-  const projectId = getCurrentProjectId(location);
+  const projectId = getCurrentProjectId(location) ?? undefined;
+  const analysisId = getCurrentAnalysisId(location) ?? undefined;
+
+  // Garder la session alignée avec le contexte (state ou session) pour rafraîchissement / autres navigations
+  useEffect(() => {
+    if (projectId != null) setCurrentProjectId(projectId);
+    if (analysisId != null) setCurrentAnalysisId(analysisId);
+  }, [projectId, analysisId]);
+
+  const [findings, setFindings] = useState<FindingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedVuln, setSelectedVuln] = useState<FindingItem | null>(null);
 
   useEffect(() => {
-    if (projectId === null) navigate("/submit", { replace: true });
-  }, [projectId, navigate]);
+    if (projectId === null && analysisId === null) return;
+    const id = analysisId ?? projectId;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    let cancelled = false;
+
+    if (analysisId != null) {
+      getAnalysisResults(analysisId)
+        .then((data) => {
+          if (cancelled) return;
+          setFindings(
+            data.findings.map((f) => ({
+              id: String(f.id),
+              severity: (f.severity === "info" ? "info" : f.severity) as FindingItem["severity"],
+              owaspCategory: f.owasp ?? "",
+              file: f.file ?? "",
+              line: f.line ?? 0,
+              tool: f.tool ?? "",
+              title: f.description?.slice(0, 80) ?? "Finding",
+              description: f.description ?? "",
+            }))
+          );
+        })
+        .catch((err) => {
+          if (!cancelled) setLoadError(err?.message ?? "Erreur de chargement");
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    } else {
+      getProjectFindings(id!)
+        .then((data) => {
+          if (cancelled) return;
+          setFindings(
+            data.findings.map((f) => ({
+              id: String(f.id),
+              severity: f.severity,
+              owaspCategory: f.owaspCategory ?? "",
+              file: f.filePath ?? "",
+              line: f.lineStart ?? 0,
+              tool: f.tool ?? "",
+              title: f.title ?? "",
+              description: f.description ?? "",
+            }))
+          );
+        })
+        .catch((err) => {
+          if (!cancelled) setLoadError(err?.message ?? "Erreur de chargement");
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, analysisId]);
+
+  useEffect(() => {
+    if (projectId === null && analysisId === null) navigate("/submit", { replace: true });
+  }, [projectId, analysisId, navigate]);
+
+  useEffect(() => {
+    setSelectedVuln(null);
+  }, [location.pathname]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [owaspFilter, setOwaspFilter] = useState<string>("all");
   const [toolFilter, setToolFilter] = useState<string>("all");
-  const [selectedVuln, setSelectedVuln] = useState<Vulnerability | null>(null);
 
-  // Fermer le Sheet à la navigation pour éviter les erreurs removeChild (portail Radix)
-  useEffect(() => {
-    setSelectedVuln(null);
-  }, [location.pathname]);
-
-  const filteredVulnerabilities = mockVulnerabilities.filter((vuln) => {
+  const filteredFindings = findings.filter((vuln) => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      vuln.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      vuln.file.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      vuln.description.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesSeverity =
-      severityFilter === "all" || vuln.severity === severityFilter;
-
-    const matchesOwasp =
-      owaspFilter === "all" || vuln.owaspCategory === owaspFilter;
-
-    const matchesTool = toolFilter === "all" || vuln.tool === toolFilter;
-
+      vuln.title.toLowerCase().includes(q) ||
+      vuln.file.toLowerCase().includes(q) ||
+      vuln.description.toLowerCase().includes(q);
+    const matchesSeverity = severityFilter === "all" || vuln.severity === severityFilter;
+    const matchesOwasp = owaspFilter === "all" || vuln.owaspCategory.startsWith(owaspFilter) || vuln.owaspCategory.includes(owaspFilter);
+    const matchesTool = toolFilter === "all" || vuln.tool.toLowerCase().includes(toolFilter.toLowerCase());
     return matchesSearch && matchesSeverity && matchesOwasp && matchesTool;
   });
 
-  if (projectId === null) return <Navigate to="/submit" replace />;
+  if (projectId === null && analysisId === null) return <Navigate to="/submit" replace />;
 
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/dashboard")}
-          >
+          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            Retour au tableau de bord
           </Button>
           <div className="flex items-center gap-3 flex-1">
-            <Shield className="w-8 h-8 text-[var(--primary)]" />
+            <Shield className="w-8 h-8 text-[var(--primary)] shrink-0" />
             <div>
-              <h1 className="text-3xl">Security Findings</h1>
-              <p className="text-muted-foreground">
-                {filteredVulnerabilities.length} vulnerabilities found
+              <h1 className="text-2xl sm:text-3xl font-semibold">Vulnérabilités</h1>
+              <p className="text-muted-foreground text-sm sm:text-base">
+                {loading ? "Chargement…" : `${filteredFindings.length} vulnérabilité(s) détectée(s)`}
               </p>
             </div>
           </div>
         </div>
 
-        <Card className="shadow-md">
-          {/* Filters */}
-          <div className="p-6 border-b">
+        {loadError && (
+          <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            {loadError}
+          </div>
+        )}
+
+        <Card className="shadow-md overflow-hidden">
+          <div className="p-4 sm:p-6 border-b bg-muted/30">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search findings..."
+                  placeholder="Rechercher (fichier, titre…)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
-
               <Select value={severityFilter} onValueChange={setSeverityFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Severity" />
+                  <SelectValue placeholder="Gravité" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Severities</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="all">Toutes</SelectItem>
+                  <SelectItem value="critical">Critique</SelectItem>
+                  <SelectItem value="high">Haute</SelectItem>
+                  <SelectItem value="medium">Moyenne</SelectItem>
+                  <SelectItem value="low">Basse</SelectItem>
+                  <SelectItem value="info">Info</SelectItem>
                 </SelectContent>
               </Select>
-
               <Select value={owaspFilter} onValueChange={setOwaspFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="OWASP Category" />
+                  <SelectValue placeholder="OWASP" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">Toutes</SelectItem>
                   {owaspCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
+                    <SelectItem key={category} value={category.split(" - ")[0]}>
                       {category.split(" - ")[0]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-
               <Select value={toolFilter} onValueChange={setToolFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Tool" />
+                  <SelectValue placeholder="Outil" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Tools</SelectItem>
+                  <SelectItem value="all">Tous</SelectItem>
                   {scanTools.map((tool) => (
                     <SelectItem key={tool} value={tool}>
                       {tool}
@@ -150,136 +225,131 @@ export function FindingsList() {
             </div>
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>OWASP Category</TableHead>
-                  <TableHead>File</TableHead>
-                  <TableHead className="text-right">Line</TableHead>
-                  <TableHead>Tool</TableHead>
-                  <TableHead>Description</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredVulnerabilities.map((vuln) => (
-                  <TableRow
-                    key={vuln.id}
-                    className="cursor-pointer hover:bg-accent"
-                    onClick={() => setSelectedVuln(vuln)}
-                  >
-                    <TableCell>
-                      <SeverityBadge severity={vuln.severity} />
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {vuln.owaspCategory.split(" - ")[0]}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {vuln.file}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {vuln.line}
-                    </TableCell>
-                    <TableCell className="text-sm">{vuln.tool}</TableCell>
-                    <TableCell className="text-sm max-w-md truncate">
-                      {vuln.title}
-                    </TableCell>
+            {loading ? (
+              <div className="p-12 text-center text-muted-foreground">Chargement des vulnérabilités…</div>
+            ) : filteredFindings.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground">
+                Aucune vulnérabilité ne correspond aux filtres.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">Gravité</TableHead>
+                    <TableHead className="w-[90px]">OWASP</TableHead>
+                    <TableHead className="min-w-[140px]">Fichier</TableHead>
+                    <TableHead className="w-[60px] text-right">Ligne</TableHead>
+                    <TableHead className="w-[100px]">Outil</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-[50px]" />
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredFindings.map((vuln) => (
+                    <TableRow
+                      key={vuln.id}
+                      className="cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => setSelectedVuln(vuln)}
+                    >
+                      <TableCell>
+                        <SeverityBadge severity={vuln.severity} />
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {vuln.owaspCategory ? vuln.owaspCategory.replace(/^([A0-9]+).*/, "$1") : "—"}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs sm:text-sm truncate max-w-[180px]" title={vuln.file}>
+                        {vuln.file || "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">{vuln.line || "—"}</TableCell>
+                      <TableCell className="text-sm">{vuln.tool || "—"}</TableCell>
+                      <TableCell className="text-sm max-w-md truncate" title={vuln.title}>
+                        {vuln.title || vuln.description || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </Card>
       </div>
 
-      {/* Finding Details Drawer */}
-      <Sheet open={!!selectedVuln} onOpenChange={() => setSelectedVuln(null)}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-          <div key="sheet-body" className={selectedVuln ? "" : "hidden"} aria-hidden={!selectedVuln}>
-          {selectedVuln ? (
+      <Sheet open={!!selectedVuln} onOpenChange={(open) => !open && setSelectedVuln(null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 flex flex-col">
+          {selectedVuln && (
             <>
-              <SheetHeader>
-                <SheetTitle className="flex items-center justify-between">
-                  <span>Vulnerability Details</span>
+              <SheetHeader className="p-6 pb-4 border-b shrink-0">
+                <div className="flex items-start justify-between gap-4">
+                  <SheetTitle className="text-lg font-semibold pr-8">
+                    Détail de la vulnérabilité
+                  </SheetTitle>
                   <SeverityBadge severity={selectedVuln.severity} />
-                </SheetTitle>
+                </div>
               </SheetHeader>
 
-              <div className="mt-6 space-y-6">
-                {/* Title and Location */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div>
-                  <h3 className="text-xl mb-2">{selectedVuln.title}</h3>
-                  <p className="text-sm text-muted-foreground font-mono">
-                    {selectedVuln.file}:{selectedVuln.line}
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    {selectedVuln.title || "Vulnérabilité détectée"}
                   </p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
+                    <FileCode className="w-4 h-4 shrink-0" />
+                    <span>
+                      {selectedVuln.file || "—"}
+                      {selectedVuln.line != null && selectedVuln.line > 0 ? `:${selectedVuln.line}` : ""}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Metadata */}
-                <div className="grid grid-cols-2 gap-4 p-4 bg-accent rounded-lg">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">
-                      OWASP Category
-                    </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">OWASP</p>
                     <p className="text-sm font-medium">
-                      {selectedVuln.owaspCategory}
+                      {selectedVuln.owaspCategory || "—"}
                     </p>
                   </div>
+                  <div className="rounded-lg border bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Outil</p>
+                    <p className="text-sm font-medium flex items-center gap-1">
+                      <Wrench className="w-3.5 h-3.5" />
+                      {selectedVuln.tool || "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedVuln.description && (
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">
-                      Detected by
+                    <h4 className="text-sm font-medium mb-2">Description</h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {selectedVuln.description}
                     </p>
-                    <p className="text-sm font-medium">{selectedVuln.tool}</p>
                   </div>
-                </div>
+                )}
 
-                {/* Description */}
-                <div>
-                  <h4 className="mb-2">Description</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedVuln.description}
-                  </p>
-                </div>
-
-                {/* Code Snippet */}
-                <div>
-                  <h4 className="mb-2">Vulnerable Code</h4>
-                  <pre className="p-4 bg-red-50 rounded-lg overflow-x-auto text-sm border border-red-200">
-                    <code>{selectedVuln.codeSnippet}</code>
-                  </pre>
-                </div>
-
-                {/* Fix Explanation */}
-                <div>
-                  <h4 className="mb-2">Suggested Fix</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {selectedVuln.fixExplanation}
-                  </p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3">
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
                   <Button
                     className="flex-1 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
-                    onClick={() => navigate(`/fix/${selectedVuln.id}`)}
+                    onClick={() => {
+                      setSelectedVuln(null);
+                      navigate(`/fix/${selectedVuln.id}`, { state: { finding: selectedVuln } });
+                    }}
                   >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    View Fix
+                    Voir le correctif suggéré
                   </Button>
-                  <Button variant="outline" className="flex-1">
-                    Accept
-                  </Button>
-                  <Button variant="outline" className="flex-1">
-                    Reject
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedVuln(null)}
+                  >
+                    Fermer
                   </Button>
                 </div>
               </div>
             </>
-          ) : (
-            <span aria-hidden />
           )}
-          </div>
         </SheetContent>
       </Sheet>
     </div>

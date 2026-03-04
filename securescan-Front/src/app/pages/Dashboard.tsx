@@ -11,8 +11,9 @@ import {
   mockSecurityScore,
   owaspCategories,
 } from "../data/mockData";
+import { getAnalysisResults } from "../api/analysis";
 import { getProjectFindings, type ProjectFindingsResponse } from "../api/projects";
-import { getCurrentProjectId, setCurrentProjectId } from "../lib/flow";
+import { getCurrentProjectId, getCurrentAnalysisId, setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
 import { ChartErrorBoundary } from "../components/ChartErrorBoundary";
 
 // Constantes pour le graphique OWASP (spec: couleurs par sévérité)
@@ -33,7 +34,12 @@ type SeverityCounts = {
   totalVulnerabilities: number;
 };
 
-function useFindingsData(projectId: number | undefined) {
+/** Total affiché = somme des gravités pour rester cohérent avec les cartes. */
+function totalFromSummary(s: SeverityCounts & { info?: number }): number {
+  return (s.critical ?? 0) + (s.high ?? 0) + (s.medium ?? 0) + (s.low ?? 0) + (s.info ?? 0);
+}
+
+function useFindingsData(projectId: number | undefined, analysisId: number | undefined) {
   const [summary, setSummary] = useState<SeverityCounts>({
     grade: mockSecurityScore.grade,
     score: mockSecurityScore.score,
@@ -44,29 +50,62 @@ function useFindingsData(projectId: number | undefined) {
     totalVulnerabilities: mockSecurityScore.totalVulnerabilities,
   });
   const [findings, setFindings] = useState(mockVulnerabilities);
-  const [loading, setLoading] = useState(!!projectId);
+  const [loading, setLoading] = useState(!!(projectId ?? analysisId));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!projectId) {
+    const id = analysisId ?? projectId;
+    if (!id) {
       setSummary({
-        grade: mockSecurityScore.grade,
-        score: mockSecurityScore.score,
-        critical: mockSecurityScore.critical,
-        high: mockSecurityScore.high,
-        medium: mockSecurityScore.medium,
-        low: mockSecurityScore.low,
-        totalVulnerabilities: mockSecurityScore.totalVulnerabilities,
+        grade: "—",
+        score: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        totalVulnerabilities: 0,
       });
-      setFindings(mockVulnerabilities);
+      setFindings([]);
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getProjectFindings(projectId)
-      .then((data: ProjectFindingsResponse) => {
+
+    const loadFromAnalysis = () =>
+      getAnalysisResults(id).then((data) => {
+        if (cancelled) return;
+        const s = data.summary;
+        const total = (s.critical ?? 0) + (s.high ?? 0) + (s.medium ?? 0) + (s.low ?? 0) + (s.info ?? 0);
+        setSummary({
+          grade: data.grade ?? "N/A",
+          score: data.score ?? 0,
+          critical: s.critical ?? 0,
+          high: s.high ?? 0,
+          medium: s.medium ?? 0,
+          low: s.low ?? 0,
+          totalVulnerabilities: total,
+        });
+        setFindings(
+          data.findings.map((f) => ({
+            id: String(f.id),
+            severity: f.severity as "critical" | "high" | "medium" | "low",
+            owaspCategory: f.owasp ?? "",
+            file: f.file ?? "",
+            line: f.line ?? 0,
+            tool: f.tool,
+            title: f.description ?? "",
+            description: f.description ?? "",
+            codeSnippet: "",
+            fixedCode: "",
+            fixExplanation: "",
+          }))
+        );
+      });
+
+    const loadFromProject = () =>
+      getProjectFindings(id).then((data: ProjectFindingsResponse) => {
         if (cancelled) return;
         setSummary({
           grade: data.grade,
@@ -92,29 +131,49 @@ function useFindingsData(projectId: number | undefined) {
             fixExplanation: "",
           }))
         );
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err.message ?? "Erreur lors du chargement");
-          setSummary({
-            grade: mockSecurityScore.grade,
-            score: mockSecurityScore.score,
-            critical: mockSecurityScore.critical,
-            high: mockSecurityScore.high,
-            medium: mockSecurityScore.medium,
-            low: mockSecurityScore.low,
-            totalVulnerabilities: mockSecurityScore.totalVulnerabilities,
-          });
-          setFindings(mockVulnerabilities);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
+
+    // En cas d'erreur API : ne pas afficher les données de démo, garder 0 vulnérabilités + message d'erreur
+    const setErrorState = () => {
+      setSummary({
+        grade: "—",
+        score: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        totalVulnerabilities: 0,
+      });
+      setFindings([]);
+    };
+
+    if (analysisId != null) {
+      loadFromAnalysis()
+        .catch((err) => {
+          if (!cancelled) {
+            setError(err?.message ?? "Erreur lors du chargement des résultats. Vérifiez que le backend (port 3000) est démarré et que vous êtes connecté.");
+            setErrorState();
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    } else {
+      loadFromProject()
+        .catch((err) => {
+          if (!cancelled) {
+            setError(err?.message ?? "Erreur lors du chargement des résultats. Vérifiez que le backend (port 3000) est démarré et que vous êtes connecté.");
+            setErrorState();
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, analysisId]);
 
   return { summary, findings, loading, error };
 }
@@ -123,16 +182,20 @@ export function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const projectId = getCurrentProjectId(location) ?? undefined;
+  const analysisId = getCurrentAnalysisId(location) ?? undefined;
 
   useEffect(() => {
-    if (projectId) setCurrentProjectId(projectId);
+    if (projectId != null) setCurrentProjectId(projectId);
   }, [projectId]);
+  useEffect(() => {
+    if (analysisId != null) setCurrentAnalysisId(analysisId);
+  }, [analysisId]);
 
   useEffect(() => {
-    if (projectId === null) navigate("/submit", { replace: true });
-  }, [projectId, navigate]);
+    if (projectId === null && analysisId === null) navigate("/submit", { replace: true });
+  }, [projectId, analysisId, navigate]);
 
-  const { summary, findings, loading, error } = useFindingsData(projectId ?? undefined);
+  const { summary, findings, loading, error } = useFindingsData(projectId, analysisId);
 
   const severityData = [
     { name: "Critique", value: summary.critical, color: "var(--severity-critical)" },
@@ -164,7 +227,7 @@ export function Dashboard() {
 
   const topVulnerabilities = findings.slice(0, 5);
 
-  if (projectId === null) return <Navigate to="/submit" replace />;
+  if (projectId === null && analysisId === null) return <Navigate to="/submit" replace />;
 
   const dashboardContent = (
     <>
@@ -175,12 +238,19 @@ export function Dashboard() {
             <div className="min-w-0">
               <h1 className="text-2xl sm:text-3xl truncate">Tableau de bord SecureScan</h1>
               <p className="text-muted-foreground text-sm sm:text-base truncate">
-                {projectId ? `Projet #${projectId}` : "example-nodejs-app"}
+                {projectId ? `Projet #${projectId}` : analysisId ? `Analyse #${analysisId}` : "example-nodejs-app"}
               </p>
             </div>
           </div>
           <Button
-            onClick={() => navigate("/findings")}
+            onClick={() =>
+              navigate("/findings", {
+                state: {
+                  projectId: projectId ?? null,
+                  analysisId: analysisId ?? null,
+                },
+              })
+            }
             className="bg-[var(--primary)] hover:bg-[var(--primary)]/90 w-full sm:w-auto shrink-0"
           >
             Voir toutes les vulnérabilités
@@ -189,11 +259,13 @@ export function Dashboard() {
 
         <div
           key="dashboard-error"
-          className={error ? "mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm" : "hidden"}
+          className={error ? "mb-4 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex flex-wrap items-center gap-3" : "hidden"}
           aria-hidden={!error}
         >
-          {error ?? ""} — Données de démonstration. Si l’API backend (port 3000) n’est pas démarrée, lancez-la avec{" "}
-          <code className="text-xs bg-amber-100 px-1 rounded">npm run dev</code> dans le dossier backend.
+          <span className="flex-1">{error ?? ""}</span>
+          <Button variant="outline" size="sm" className="shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100" onClick={() => navigate("/submit")}>
+            Relancer une analyse
+          </Button>
         </div>
 
         <div key="dashboard-loading" className={loading ? "" : "hidden"} aria-hidden={!loading}>
@@ -227,7 +299,7 @@ export function Dashboard() {
                         </span>
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {summary.totalVulnerabilities} vulnérabilité(s) détectée(s)
+                        {totalFromSummary(summary)} vulnérabilité(s) détectée(s)
                       </p>
                     </div>
                   </div>
@@ -384,7 +456,11 @@ export function Dashboard() {
                   <div
                     key={vuln.id}
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 bg-card hover:bg-accent rounded-lg transition-colors cursor-pointer border"
-                    onClick={() => navigate("/findings")}
+                    onClick={() =>
+                      navigate("/findings", {
+                        state: { projectId: projectId ?? null, analysisId: analysisId ?? null },
+                      })
+                    }
                   >
                     <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
                       <SeverityBadge severity={vuln.severity} />
@@ -418,10 +494,17 @@ export function Dashboard() {
                   <Shield className="w-10 h-10 text-[var(--primary)] shrink-0" />
                   <div>
                     <h1 className="text-2xl sm:text-3xl">Tableau de bord SecureScan</h1>
-                    <p className="text-muted-foreground text-sm">Projet #{projectId}</p>
+                    <p className="text-muted-foreground text-sm">{projectId ? `Projet #${projectId}` : `Analyse #${analysisId}`}</p>
                   </div>
                 </div>
-                <Button onClick={() => navigate("/findings")} className="bg-[var(--primary)] hover:bg-[var(--primary)]/90">
+                <Button
+                  onClick={() =>
+                    navigate("/findings", {
+                      state: { projectId: projectId ?? null, analysisId: analysisId ?? null },
+                    })
+                  }
+                  className="bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+                >
                   Voir toutes les vulnérabilités
                 </Button>
               </div>
