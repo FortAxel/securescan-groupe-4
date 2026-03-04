@@ -8,7 +8,8 @@ import { existsSync, mkdirSync } from 'fs';
 import 'dotenv/config';
 
 import authRoutes from './routes/auth.routes.js';
-//import projectRoutes from './routes/projects.routes.js';
+import meRoutes from './routes/me.routes.js';
+import projectRoutes from './routes/projects.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 //import reportRoutes from './routes/reports.routes.js';
 
@@ -39,7 +40,8 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/auth',      authRoutes);
-//app.use('/api/projects',  projectRoutes);
+app.use('/api/me',        meRoutes);
+app.use('/api/projects',  projectRoutes);
 app.use('/api/analysis',  analysisRoutes);
 //app.use('/api/reports',   reportRoutes);
 
@@ -63,8 +65,11 @@ app.use((err, _req, res, _next) => {
 
 const port = process.env.PORT || 3000;
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`🚀 SecureScan API running on http://localhost:${port}`);
 });
+
+// Requêtes de scan (clone + analyse) peuvent prendre 1 à 5 min
+server.timeout = Number(process.env.SERVER_TIMEOUT_MS) || 5 * 60 * 1000;
 
 export default app;

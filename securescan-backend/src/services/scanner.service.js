@@ -43,10 +43,24 @@ function computeScore(findings) {
 async function runAllScans(projectPath) {
   console.log(`[Scanner] Starting scans on: ${projectPath}`);
 
+  function runSafe(toolName, fn) {
+    try {
+      const result = fn();
+      if (result && Array.isArray(result.findings)) {
+        if (result.error) console.warn(`[Scanner] ${result.tool}: ${result.error}`);
+        return result;
+      }
+      return { tool: toolName, findings: [], error: 'Invalid result' };
+    } catch (err) {
+      console.warn(`[Scanner] ${toolName} threw:`, err.message);
+      return { tool: toolName, findings: [], error: err.message };
+    }
+  }
+
   const results = [
-    runSemgrep(projectPath),
-    runNpmAudit(projectPath),
-    runTrufflehog(projectPath),
+    runSafe('SEMGREP', () => runSemgrep(projectPath)),
+    runSafe('NPM_AUDIT', () => runNpmAudit(projectPath)),
+    runSafe('TRUFFLEHOG', () => runTrufflehog(projectPath)),
   ];
 
   const allFindings = [];
@@ -54,15 +68,17 @@ async function runAllScans(projectPath) {
 
   for (const result of results) {
     if (result.error) {
-      console.warn(`[Scanner] ${result.tool} reported an error: ${result.error}`);
       errors.push({ tool: result.tool, message: result.error });
     }
-    allFindings.push(...result.findings);
+    if (result.findings && result.findings.length) {
+      allFindings.push(...result.findings);
+      console.log(`[Scanner] ${result.tool}: ${result.findings.length} finding(s)`);
+    }
   }
 
   const { score, grade } = computeScore(allFindings);
 
-  console.log(`[Scanner] Done. ${allFindings.length} findings — Score: ${score} (${grade})`);
+  console.log(`[Scanner] Done. ${allFindings.length} findings total — Score: ${score} (${grade})`);
 
   return { findings: allFindings, score, grade, errors };
 }
