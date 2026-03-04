@@ -174,13 +174,6 @@ enum OwaspCategory {
   A10
 }
 
-enum FixStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  APPLIED
-}
-
 enum PushStatus {
   PENDING
   PUSHED
