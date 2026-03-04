@@ -43,25 +43,11 @@ function computeScore(findings) {
 async function runAllScans(projectPath) {
   console.log(`[Scanner] Starting scans on: ${projectPath}`);
 
-  function runSafe(toolName, fn) {
-    try {
-      const result = fn();
-      if (result && Array.isArray(result.findings)) {
-        if (result.error) console.warn(`[Scanner] ${result.tool}: ${result.error}`);
-        return result;
-      }
-      return { tool: toolName, findings: [], error: 'Invalid result' };
-    } catch (err) {
-      console.warn(`[Scanner] ${toolName} threw:`, err.message);
-      return { tool: toolName, findings: [], error: err.message };
-    }
-  }
-
-  const results = [
-    runSafe('SEMGREP', () => runSemgrep(projectPath)),
-    runSafe('NPM_AUDIT', () => runNpmAudit(projectPath)),
-    runSafe('TRUFFLEHOG', () => runTrufflehog(projectPath)),
-  ];
+  const results = await Promise.all([
+    runSemgrep(projectPath),
+    runNpmAudit(projectPath),
+    runTrufflehog(projectPath),
+  ]);
 
   const allFindings = [];
   const errors      = [];

@@ -1,186 +1,115 @@
-import { execSync } from 'child_process';
+import { existsSync, rmSync, mkdirSync, createReadStream } from 'fs';
 import { join } from 'path';
-import { existsSync, mkdirSync, rmSync } from 'fs';
-import {
-  createProject,
-  createAnalysis,
-  updateAnalysis,
-  updateProject,
-  createFindings,
-  findProjectByIdAndUser,
-  findFindingsByAnalysis,
-} from '../services/db/databaseManager.js';
-import { runAllScans } from '../services/scanner.service.js';
+import { Extract } from 'unzipper';
+import { getGithubAuthByUserId } from "../services/db/databaseManager.js";
+import { cloneRepository } from "../services/git.service.js";
+import { runAllScans } from "../services/scanner.service.js";
+import { detectLanguage } from '../services/utils.service.js';
 
-const repoDir = process.env.REPO_DIR || join(process.cwd(), 'tmp', 'repos');
+const TMP_BASE = '/tmp/securescan';
 
-const OWASP_VALUES = ['A01', 'A02', 'A03', 'A04', 'A05', 'A06', 'A07', 'A08', 'A09', 'A10'];
-
-function toPrismaSeverity(sev) {
-  const s = (sev || 'info').toUpperCase();
-  return ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'].includes(s) ? s : 'INFO';
-}
-
-function toPrismaOwasp(val) {
-  if (!val) return null;
-  const v = String(val).toUpperCase().replace(/^A(\d)$/, 'A0$1');
-  return OWASP_VALUES.includes(v) ? v : null;
+/**
+ * Clean temporary folder.
+ * @param {string} folder
+ */
+function cleanup(folder) {
+  if (existsSync(folder)) {
+    rmSync(folder, { recursive: true, force: true });
+  }
 }
 
 /**
- * POST /api/projects
- * Body: { name?: string, sourceUrl: string } (sourceUrl = Git clone URL)
- * Creates project + analysis, clones repo, runs scanner, saves findings.
- * Returns { projectId, analysisId } for front to navigate to /scan then dashboard.
+ * Handle Git project submission.
  */
-const startScan = async (req, res, next) => {
+export async function createFromGit(req, res) {
+  const { url, name } = req.body;
+
+  if (!url) return res.status(400).json({ error: 'Repository URL required' });
+
+  const projectPath = join(TMP_BASE, Date.now().toString());
+
   try {
-    const userId = req.userId;
-    const { name, sourceUrl, url } = req.body;
-    const rawUrl = sourceUrl ?? url;
-    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
-      return res.status(400).json({ error: 'sourceUrl or url is required (Git clone URL)' });
+    mkdirSync(projectPath, { recursive: true });
+
+    const githubAuth = await getGithubAuthByUserId(req.user.id);
+
+    if (!githubAuth?.githubAccessToken) {
+      return res.status(401).json({
+        message: "GitHub account not connected",
+      });
     }
+    await updateProjectStatus(projectId, 'CLONING');
 
-    const gitUrl = rawUrl.trim();
-    if (!/^https?:\/\/|^git@/i.test(gitUrl)) {
-      return res.status(400).json({ error: 'Invalid Git URL' });
-    }
+    await cloneRepository(
+      project.sourceUrl,
+      project.localPath,
+      githubAuth.githubAccessToken
+    );
 
-    const projectName = (name && String(name).trim()) || `Scan ${new Date().toISOString().slice(0, 10)}`;
+    const language = detectLanguage(projectPath);
 
-    const project = await createProject(userId, {
-      name: projectName,
+    const project = await createProject({
+      userId: req.user.id,
+      name,
       sourceType: 'GIT',
-      sourceUrl: gitUrl,
-      status: 'CLONING',
+      sourceUrl: url,
+      localPath: projectPath,
+      language,
+      status: 'PENDING'
     });
 
-    const analysis = await createAnalysis(project.id);
-    await updateAnalysis(analysis.id, { status: 'RUNNING', startedAt: new Date() });
+    runAllScans(projectPath);
 
-    if (!existsSync(repoDir)) mkdirSync(repoDir, { recursive: true });
-    const projectPath = join(repoDir, `project-${project.id}`);
-
-    try {
-      if (existsSync(projectPath)) {
-        rmSync(projectPath, { recursive: true, force: true });
-      }
-      console.log(`[Projects] Cloning ${gitUrl} into ${projectPath}...`);
-      execSync(`git clone --depth 1 "${gitUrl}" "${projectPath}"`, {
-        timeout: 120_000,
-        stdio: 'pipe',
-      });
-      console.log(`[Projects] Clone OK. Starting Semgrep + npm audit + TruffleHog...`);
-    } catch (cloneErr) {
-      await updateAnalysis(analysis.id, { status: 'ERROR', errorMessage: cloneErr.message });
-      return res.status(422).json({
-        error: 'Clone failed',
-        detail: cloneErr.message,
-        projectId: project.id,
-        analysisId: analysis.id,
-      });
-    }
-
-    let scanResult;
-    try {
-      scanResult = await runAllScans(projectPath);
-      console.log(`[Projects] Scan OK. Saving ${scanResult.findings?.length ?? 0} findings...`);
-    } catch (scanErr) {
-      await updateAnalysis(analysis.id, { status: 'ERROR', errorMessage: scanErr.message });
-      return res.status(500).json({
-        error: 'Scan failed',
-        detail: scanErr.message,
-        projectId: project.id,
-        analysisId: analysis.id,
-      });
-    }
-
-    const { findings: rawFindings, score, grade } = scanResult;
-
-    const findingsForDb = rawFindings.map((f) => ({
-      analysisId: analysis.id,
-      tool: (f.tool || 'SEMGREP').toUpperCase(),
-      severity: toPrismaSeverity(f.severity),
-      owaspCategory: toPrismaOwasp(f.owaspCategory),
-      title: (f.title || 'Finding').slice(0, 255),
-      description: f.description || null,
-      filePath: f.filePath || f.file || null,
-      lineStart: f.lineStart ?? f.line ?? null,
-      lineEnd: f.lineEnd ?? null,
-      rawOutput: f.rawOutput || null,
-      fixStatus: 'PENDING',
-    }));
-
-    if (findingsForDb.length > 0) {
-      await createFindings(findingsForDb);
-    }
-
-    await updateAnalysis(analysis.id, {
-      status: 'DONE',
-      score: score ?? 0,
-      grade: grade ?? 'N/A',
-      finishedAt: new Date(),
-    });
-    await updateProject(project.id, { status: 'DONE' });
-
-    console.log(`[Projects] Done. projectId=${project.id} analysisId=${analysis.id} findings=${findingsForDb.length}`);
-    res.status(201).json({
+    return res.json({
       projectId: project.id,
-      analysisId: analysis.id,
-      projectName: project.name,
-      status: 'DONE',
-      score: score ?? 0,
-      grade: grade ?? 'N/A',
-      findingsCount: findingsForDb.length,
+      language,
+      status: project.status
     });
+
   } catch (err) {
-    next(err);
+    cleanup(projectPath);
+    return res.status(500).json({ error: 'Git clone failed', details: err.message });
   }
-};
+}
 
 /**
- * GET /api/projects/:projectId/findings
- * Returns findings of the latest analysis for the project (same shape as front getProjectFindings).
+ * Handle ZIP upload submission.
  */
-const getProjectFindings = async (req, res, next) => {
-  try {
-    const projectId = Number(req.params.projectId);
-    const project = await findProjectByIdAndUser(projectId, req.userId);
-    if (!project || !project.analyses?.length) {
-      return res.status(404).json({ error: 'Project or analysis not found' });
-    }
-    const latestAnalysis = project.analyses[0];
-    const findings = await findFindingsByAnalysis(latestAnalysis.id);
-    const summary = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-    findings.forEach(f => {
-      const s = (f.severity || '').toLowerCase();
-      if (summary.hasOwnProperty(s)) summary[s]++;
-    });
-    const total = findings.length;
-    res.json({
-      grade: latestAnalysis.grade ?? 'N/A',
-      score: latestAnalysis.score ?? 0,
-      critical: summary.critical,
-      high: summary.high,
-      medium: summary.medium,
-      low: summary.low,
-      totalVulnerabilities: total,
-      findings: findings.map(f => ({
-        id: f.id,
-        tool: f.tool,
-        severity: (f.severity || 'LOW').toLowerCase(),
-        owaspCategory: f.owaspCategory,
-        title: f.title || f.description || 'Finding',
-        description: f.description,
-        filePath: f.filePath,
-        lineStart: f.lineStart,
-        lineEnd: f.lineEnd,
-      })),
-    });
-  } catch (err) {
-    next(err);
+export async function createFromZip(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ error: 'ZIP file required' });
   }
-};
 
-export { startScan, getProjectFindings };
+  const projectPath = join(TMP_BASE, Date.now().toString());
+
+  try {
+    mkdirSync(projectPath, { recursive: true });
+
+    await createReadStream(req.file.path)
+      .pipe(Extract({ path: projectPath }))
+      .promise();
+
+    const language = detectLanguage(projectPath);
+
+    const project = await createProject({
+      userId: req.user.id,
+      name: req.body.name,
+      sourceType: 'ZIP',
+      localPath: projectPath,
+      language,
+      status: 'PENDING'
+    });
+
+    launchScan(project.id, projectPath);
+
+    return res.json({
+      projectId: project.id,
+      language,
+      status: project.status
+    });
+
+  } catch (err) {
+    cleanup(projectPath);
+    return res.status(500).json({ error: 'ZIP processing failed', details: err.message });
+  }
+}

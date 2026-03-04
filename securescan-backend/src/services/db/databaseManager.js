@@ -42,6 +42,39 @@ const createUser = (data) =>
   });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// GITHUB OAUTH
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Save GitHub OAuth data for a user
+ * @param {number} userId
+ * @param {{ githubId: string, accessToken: string, expiresAt?: Date }} data
+ */
+const saveGithubOAuthData = (userId, data) =>
+  prisma.user.update({
+    where: { id: userId },
+    data: {
+      githubId: data.githubId,
+      githubAccessToken: data.accessToken,
+      githubTokenExpiresAt: data.expiresAt ?? null,
+    },
+  });
+
+/**
+ * Get GitHub auth data for a user
+ * @param {number} userId
+ */
+const getGithubAuthByUserId = (userId) =>
+  prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      githubId: true,
+      githubAccessToken: true,
+      githubTokenExpiresAt: true,
+    },
+  });
+
+// ══════════════════════════════════════════════════════════════════════════════
 // PROJECT
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -245,6 +278,9 @@ export {
   findUserByEmailOrUsername,
   findUserById,
   createUser,
+
+  saveGithubOAuthData,
+  getGithubAuthByUserId,
 
   createProject,
   findProjectsByUser,

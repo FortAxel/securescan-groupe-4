@@ -1,27 +1,21 @@
-import express from 'express';
-import { startScan, getProjectFindings } from '../controllers/projects.controller.js';
-import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { Router } from 'express';
+import multer from 'multer';
+import { createFromGit, createFromZip } from '../controllers/projects.controller.js';
 
-const router = express.Router();
+const router = Router();
 
-/** GET /api/projects — vérification que le router est monté (pour debug) */
-router.get('/', (_req, res) => {
-  res.json({ ok: true, message: 'POST /api/projects with { sourceUrl } or { url } to start a scan' });
+const upload = multer({
+  limits: { fileSize: 50 * 1024 * 1024 }
 });
 
 /**
- * @route   POST /api/projects
- * @desc    Create project, clone Git repo, run security scan, save findings
- * @body    { name?: string, sourceUrl?: string, url?: string }
- * @access  Private
+ * Submit Git repository URL
  */
-router.post('/', authMiddleware, startScan);
+router.post('/', createFromGit);
 
 /**
- * @route   GET /api/projects/:projectId/findings
- * @desc    Get findings of the latest analysis for the project
- * @access  Private
+ * Upload ZIP archive
  */
-router.get('/:projectId/findings', authMiddleware, getProjectFindings);
+router.post('/upload', upload.single('file'), createFromZip);
 
 export default router;

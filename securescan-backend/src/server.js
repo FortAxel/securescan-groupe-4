@@ -12,6 +12,9 @@ import meRoutes from './routes/me.routes.js';
 import projectRoutes from './routes/projects.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 import correctionRoutes from './routes/correction.routes.js';
+import projectRoutes from './routes/projects.routes.js';
+import analysisRoutes from './routes/analysis.routes.js';
+import githubAuthRoutes from './routes/githubAuth.routes.js';
 
 const app = express();
 
@@ -44,6 +47,7 @@ app.use('/api/me',          meRoutes);
 app.use('/api/projects',    projectRoutes);
 app.use('/api/analysis',    analysisRoutes);
 app.use('/api/corrections', correctionRoutes);
+app.use('/api/githubAuth',  githubAuthRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 
