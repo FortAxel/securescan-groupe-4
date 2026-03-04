@@ -86,6 +86,7 @@ const getGithubAuthByUserId = (userId) =>
 const createProject = (userId, data) =>
   prisma.project.create({ data: { userId, ...data } });
 
+
 /**
  * Find all projects belonging to a user
  * @param {number} userId
@@ -96,6 +97,14 @@ const findProjectsByUser = (userId) =>
     orderBy: { createdAt: 'desc' },
     include: { analyses: { select: { id: true, status: true, score: true, grade: true, createdAt: true } } },
   });
+
+  /**
+ * Find a single project by url, only if it belongs to the user
+ * @param {number} sourceUrl
+ * @param {number} userId
+ */
+const findProjectByUrlAndUser = (sourceUrl, userId) =>
+  prisma.project.findFirst({ where: { sourceUrl, userId } });
 
 /**
  * Find a single project by id, only if it belongs to the user
@@ -198,6 +207,19 @@ const findFindingById = (id) =>
 const updateFinding = (id, data) =>
   prisma.finding.update({ where: { id }, data });
 
+/**
+ * Find a single correction by finding id
+ * @param {number} id
+ * @param {object} data
+ */
+const findValidatedCorrectionsByAnalysis = (analysisId) =>
+  prisma.correction.findMany({
+    where: {
+      status: 'VALIDATED',
+      finding: { analysisId },
+    },
+  });
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Correction
 // ══════════════════════════════════════════════════════════════════════════════
@@ -284,6 +306,7 @@ export {
 
   createProject,
   findProjectsByUser,
+  findProjectByUrlAndUser,
   findProjectByIdAndUser,
   updateProject,
   deleteProject,
