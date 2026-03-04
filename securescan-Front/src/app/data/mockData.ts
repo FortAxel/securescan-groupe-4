@@ -86,7 +86,7 @@ const token = jwt.sign(payload, SECRET_KEY);`,
     fixedCode: `app.get('/api/documents/:id', async (req, res) => {
   const doc = await Document.findById(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Not found' });
-  if (doc.userId !== req.user.id) {
+  if (doc.userId !== req.userId) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   res.json(doc);
