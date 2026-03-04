@@ -36,6 +36,12 @@ export function getOctokit(accessToken) {
   });
 }
 
+export async function getDefaultBranch(owner, repo, accessToken) {
+  const octokit = getOctokit(accessToken);
+  const { data } = await octokit.repos.get({ owner, repo });
+  return data.default_branch;
+}
+
 /**
  * Clones a GitHub repository locally using HTTPS authentication.
  *
@@ -100,7 +106,8 @@ export async function createRemoteBranch(owner, repo, baseBranch, accessToken) {
   const octokit = getOctokit(accessToken);
 
   const date = new Date().toISOString().split("T")[0];
-  const branchName = `fix/securescan-${date}`;
+  const timestamp = Date.now();
+  const branchName = `fix/securescan-${date}-${timestamp}`;
 
   const sha = await getLatestCommitSHA(owner, repo, baseBranch, accessToken);
 
@@ -137,14 +144,25 @@ export async function applyCorrections(corrections, repoPath) {
   corrections.forEach((correction) => {
     const filePath = path.join(repoPath, correction.filePath);
 
-    let content = fs.readFileSync(filePath, "utf8");
+    if (!fs.existsSync(filePath)) {
+      console.warn('[applyCorrections] File not found:', filePath);
+      return;
+    }
 
-    content = content.replace(
-      correction.oldCode,
-      correction.newCode
-    );
+    if (correction.filePath.includes('/.git/')) {
+      console.warn('[applyCorrections] Skipping .git file:', filePath);
+      return;
+    }
 
-    fs.writeFileSync(filePath, content);
+    const lines = fs.readFileSync(filePath, 'utf8').split('\n');
+    const start = (correction.lineStart ?? 1) - 1; // 0-indexed
+    const end   = (correction.lineEnd   ?? correction.lineStart ?? 1) - 1;
+
+    // Replace the lines between lineStart and lineEnd with fixedSnippet
+    lines.splice(start, end - start + 1, correction.newCode);
+
+    fs.writeFileSync(filePath, lines.join('\n'));
+    console.log(`[applyCorrections] Applied fix at ${correction.filePath}:${correction.lineStart}`);
   });
 }
 

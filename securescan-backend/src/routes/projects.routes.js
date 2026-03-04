@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { createFromGit, createFromZip } from '../controllers/projects.controller.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -11,11 +12,11 @@ const upload = multer({
 /**
  * Submit Git repository URL
  */
-router.post('/', createFromGit);
+router.post('/', authMiddleware, createFromGit);
 
 /**
  * Upload ZIP archive
  */
-router.post('/upload', upload.single('file'), createFromZip);
+router.post('/upload', authMiddleware, upload.single('file'), createFromZip);
 
 export default router;

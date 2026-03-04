@@ -23,7 +23,7 @@ export const redirectToGithub = (req, res) => {
  */
 export const githubCallback = async (req, res) => {
   const { code } = req.query;
-  const userId = req.user.id;
+  const userId = req.userId;
 
   try {
     // Exchange code for access token

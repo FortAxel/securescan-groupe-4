@@ -48,7 +48,6 @@ const getResults = async (req, res, next) => {
       severity:    f.severity.toLowerCase(),
       owasp:       f.owaspCategory || null,
       tool:        f.tool.toLowerCase(),
-      fixStatus:   f.fixStatus.toLowerCase(),
     }));
 
     res.json({

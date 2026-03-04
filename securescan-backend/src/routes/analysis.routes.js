@@ -1,6 +1,7 @@
-import express                           from 'express';
+import express from 'express';
 import { getResults, getOwaspBreakdown } from '../controllers/analysis.controller.js';
-import { authMiddleware }                from '../middlewares/auth.middleware.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { applyCorrectionsHandler } from '../controllers/apply.controller.js';
 
 const router = express.Router();
 
@@ -20,5 +21,13 @@ router.get('/:analysisId/results', authMiddleware, getResults);
  * @access  Private
  */
 router.get('/:analysisId/results/owasp', authMiddleware, getOwaspBreakdown);
+
+/**
+ * POST /api/analysis/:analysisId/apply
+ * Apply all VALIDATED corrections for an analysis.
+ * - GIT project → push branch + open PR → { pullRequestUrl, branchName, correctionsApplied }
+ * - ZIP project → streams corrected ZIP as attachment
+ */
+router.post('/:analysisId/apply', authMiddleware, applyCorrectionsHandler);
 
 export default router;

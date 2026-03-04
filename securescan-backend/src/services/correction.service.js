@@ -8,25 +8,8 @@
 
 // ─── Helpers internes ────────────────────────────────────────────────────────
 
-/**
- * Tente de détecter le langage depuis le filePath ou le snippet.
- * @param {string} filePath
- * @param {string} snippet
- * @returns {"js"|"php"|"python"|"java"|"unknown"}
- */
-function detectLanguage(filePath = "", snippet = "") {
-  if (/\.(js|ts|jsx|tsx|mjs|cjs)$/i.test(filePath)) return "js";
-  if (/\.php$/i.test(filePath))                       return "php";
-  if (/\.(py)$/i.test(filePath))                      return "python";
-  if (/\.(java|kt)$/i.test(filePath))                 return "java";
 
-  // Fallback sur le contenu du snippet
-  if (/require\(|import |const |let |var /.test(snippet))  return "js";
-  if (/<\?php|echo\s/.test(snippet))                       return "php";
-  if (/def |import |print\(/.test(snippet))                return "python";
-
-  return "unknown";
-}
+import { detectLanguage } from '../services/utils.service.js';
 
 /**
  * Construit un objet correction normalisé.
@@ -36,7 +19,7 @@ function makeCorrection(type, original, fixed, explanation) {
     type,
     originalSnippet: original,
     fixedSnippet:    fixed,
-    explanation,     // affiché dans l'UI / utile en soutenance
+    explanation,    
   };
 }
 
@@ -50,7 +33,6 @@ function templateA01(original, lang) {
   let fixed = original;
 
   if (lang === "js") {
-    // Ajoute un guard middleware si absent
     if (!original.includes("req.user") && !original.includes("isAdmin")) {
       fixed = `if (!req.user || req.user.role !== 'admin') {\n  return res.status(403).json({ error: 'Forbidden' });\n}\n${original}`;
     }
@@ -63,7 +45,7 @@ function templateA01(original, lang) {
   }
 
   return makeCorrection(
-    "SQL_INJECTION", // type le plus proche dispo dans l'enum — à étendre si besoin
+    "SQL_INJECTION",
     original,
     fixed,
     "A01 — Ajouter une vérification d'autorisation avant l'accès à la ressource."
@@ -78,7 +60,6 @@ function templateA02(original, lang) {
   let fixed = original;
   let type  = "PLAINTEXT_PASSWORD";
 
-  // Mot de passe stocké en clair
   if (/password\s*=\s*['"][^'"]+['"]/i.test(original)) {
     if (lang === "js") {
       fixed = original.replace(
@@ -99,7 +80,6 @@ function templateA02(original, lang) {
     }
   }
 
-  // MD5 / SHA1 → SHA256 minimum
   if (/md5\(|sha1\(/i.test(original)) {
     type  = "SECRET";
     if (lang === "js") {
@@ -114,7 +94,6 @@ function templateA02(original, lang) {
     }
   }
 
-  // URL HTTP en dur → HTTPS
   if (/http:\/\//i.test(original)) {
     fixed = original.replace(/http:\/\//gi, "https://");
   }
@@ -131,7 +110,6 @@ function templateA03(original, lang) {
   let fixed = original;
   let type  = "XSS";
 
-  // XSS — sortie non échappée
   if (/innerHTML|document\.write|eval\(/.test(original)) {
     type  = "XSS";
     fixed = original
@@ -140,7 +118,6 @@ function templateA03(original, lang) {
       .replace(/eval\((.*)\)/,             "// eval() supprimé — dangereux");
   }
 
-  // XSS PHP
   if (lang === "php" && /echo\s+\$_(GET|POST|REQUEST)/i.test(original)) {
     type  = "XSS";
     fixed = original.replace(
@@ -149,7 +126,6 @@ function templateA03(original, lang) {
     );
   }
 
-  // SQL Injection — concaténation directe
   if (/query\(.*\+|query\(.*\$|execute\(.*\+/i.test(original)) {
     type  = "SQL_INJECTION";
     if (lang === "js") {
@@ -170,9 +146,8 @@ function templateA03(original, lang) {
     }
   }
 
-  // Injection de commande OS
   if (/exec\(|system\(|shell_exec\(|child_process/.test(original)) {
-    type  = "SQL_INJECTION"; // type générique — à adapter si CorrectionType évolue
+    type  = "SQL_INJECTION";
     fixed = `// ⚠️ Injection de commande détectée — éviter exec/system avec des entrées utilisateur\n`
           + `// Utiliser une liste blanche de commandes autorisées\n`
           + original.replace(/exec\(([^)]+)\)/, "execFile('/chemin/safe', [arg_valide])");
@@ -210,7 +185,6 @@ function templateA04(original) {
 function templateA05(original, lang) {
   let fixed = original;
 
-  // CORS trop permissif
   if (/cors\(\s*\{.*origin.*\*/.test(original) || /Access-Control.*\*/.test(original)) {
     fixed = original
       .replace(/origin\s*:\s*['"]?\*['"]?/, "origin: process.env.ALLOWED_ORIGIN")
@@ -218,7 +192,6 @@ function templateA05(original, lang) {
         "Access-Control-Allow-Origin: https://votredomaine.com");
   }
 
-  // Debug / stack trace exposé en prod
   if (/app\.use\(errorHandler\)|res\.send\(err\)|console\.error\(err\)/.test(original)) {
     fixed = original.replace(
       /res\.send\(err\)/,
@@ -226,7 +199,6 @@ function templateA05(original, lang) {
     );
   }
 
-  // Headers de sécurité manquants (Express)
   if (lang === "js" && /express\(\)/.test(original) && !original.includes("helmet")) {
     fixed = `const helmet = require('helmet');\n${original}\napp.use(helmet());`;
   }
@@ -240,7 +212,6 @@ function templateA05(original, lang) {
  * A06 — Vulnerable and Outdated Components (NPM_AUDIT)
  */
 function templateA06(original) {
-  // rawOutput de npm audit contient souvent { name, version, fixAvailable }
   let fixed = original;
 
   const versionMatch = original.match(/"version"\s*:\s*"([^"]+)"/);
@@ -263,7 +234,6 @@ function templateA06(original) {
 function templateA07(original, lang) {
   let fixed = original;
 
-  // Pas de rate limiting sur /login
   if (/router\.(post|get)\(['"]\/login/.test(original) && !original.includes("rateLimit")) {
     if (lang === "js") {
       fixed = `const rateLimit = require('express-rate-limit');\n`
@@ -275,7 +245,6 @@ function templateA07(original, lang) {
     }
   }
 
-  // JWT sans expiration
   if (/jwt\.sign\(/.test(original) && !/expiresIn/.test(original)) {
     fixed = original.replace(
       /jwt\.sign\((\{[^}]+\}),\s*([^,)]+)\)/,
@@ -283,7 +252,6 @@ function templateA07(original, lang) {
     );
   }
 
-  // Session sans httpOnly / secure
   if (/session\(\{/.test(original)) {
     if (!original.includes("httpOnly")) {
       fixed = original.replace(
@@ -304,7 +272,6 @@ function templateA07(original, lang) {
 function templateA08(original, lang) {
   let fixed = original;
 
-  // Désérialisation non sécurisée
   if (/JSON\.parse\(|unserialize\(|pickle\.loads\(/.test(original)) {
     if (lang === "js") {
       fixed = `// Valider le schéma avant de parser\ntry {\n  const data = JSON.parse(input);\n  // Valider avec un schéma (ex: Joi, Zod)\n  schema.parse(data);\n} catch (e) {\n  throw new Error('Invalid input');\n}`;
@@ -324,7 +291,6 @@ function templateA08(original, lang) {
 function templateA09(original, lang) {
   let fixed = original;
 
-  // Pas de log sur les erreurs d'auth
   if (/catch\s*\(/.test(original) && !/logger\.|console\.warn|console\.error/.test(original)) {
     if (lang === "js") {
       fixed = original.replace(
@@ -411,11 +377,9 @@ export function generateTemplateCorrection(finding) {
   const original = finding.rawOutput?.codeSnippet || "";
   const lang     = detectLanguage(finding.filePath || "", original);
 
-  // Priorité outil — TruffleHog et NPM Audit ont leur propre logique
   if (finding.tool === "TRUFFLEHOG") return templateTrufflehog(original);
   if (finding.tool === "NPM_AUDIT")  return templateNpmAudit(finding);
 
-  // Dispatch par catégorie OWASP
   switch (finding.owaspCategory) {
     case "A01": return templateA01(original, lang);
     case "A02": return templateA02(original, lang);

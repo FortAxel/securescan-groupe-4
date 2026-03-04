@@ -150,8 +150,18 @@ const createAnalysis = (projectId) =>
  */
 const findAnalysisByIdAndUser = (id, userId) =>
   prisma.analysis.findFirst({
-    where:   { id, project: { userId } },
-    include: { project: { select: { id: true, name: true } } },
+    where: { id, project: { userId } },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          sourceType: true,
+          sourceUrl: true,
+          localPath: true,
+        }
+      }
+    },
   });
 
 /**
@@ -170,8 +180,8 @@ const updateAnalysis = (id, data) =>
  * Bulk create findings for an analysis
  * @param {object[]} findings - Array of finding objects
  */
-const createFindings = (findings) =>
-  prisma.finding.createMany({ data: findings });
+const createFinding = (data) =>
+  prisma.finding.create({ data });
 
 /**
  * Find all findings for an analysis, with optional filters
@@ -206,19 +216,6 @@ const findFindingById = (id) =>
  */
 const updateFinding = (id, data) =>
   prisma.finding.update({ where: { id }, data });
-
-/**
- * Find a single correction by finding id
- * @param {number} id
- * @param {object} data
- */
-const findValidatedCorrectionsByAnalysis = (analysisId) =>
-  prisma.correction.findMany({
-    where: {
-      status: 'VALIDATED',
-      finding: { analysisId },
-    },
-  });
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Correction
@@ -273,6 +270,23 @@ const validateCorrection = async(findingId) =>
 const rejectCorrection = async (findingId) =>
   prisma.correction.updateMany({ where: { findingId }, data: {status: "REJECTED" } });
 
+/**
+ * Find a single correction by finding id
+ * @param {number} analysisId
+ */
+const findValidatedCorrectionsByAnalysis = (analysisId) =>
+  prisma.correction.findMany({
+    where: {
+      status: 'VALIDATED',
+      finding: { analysisId },
+    },
+    include: {
+      finding: {
+        select: { filePath: true, lineStart: true, lineEnd: true }
+      }
+    },
+  });
+
 // ══════════════════════════════════════════════════════════════════════════════
 // FIX BRANCH
 // ══════════════════════════════════════════════════════════════════════════════
@@ -315,7 +329,7 @@ export {
   findAnalysisByIdAndUser,
   updateAnalysis,
 
-  createFindings,
+  createFinding,
   findFindingsByAnalysis,
   findFindingById,
   updateFinding,
@@ -324,6 +338,7 @@ export {
   getCorrectionByFinding,
   validateCorrection,
   rejectCorrection,
+  findValidatedCorrectionsByAnalysis,
 
   createFixBranch,
   updateFixBranch,

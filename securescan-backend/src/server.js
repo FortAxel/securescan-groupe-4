@@ -15,6 +15,7 @@ import correctionRoutes from './routes/correction.routes.js';
 import projectRoutes from './routes/projects.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 import githubAuthRoutes from './routes/githubAuth.routes.js';
+import correctionRoutes from './routes/correction.routes.js'
 
 const app = express();
 
@@ -42,12 +43,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/auth',        authRoutes);
-app.use('/api/me',          meRoutes);
-app.use('/api/projects',    projectRoutes);
-app.use('/api/analysis',    analysisRoutes);
-app.use('/api/corrections', correctionRoutes);
+app.use('/api/auth',      authRoutes);
+app.use('/api/projects',  projectRoutes);
+app.use('/api/analysis',  analysisRoutes);
 app.use('/api/githubAuth',  githubAuthRoutes);
+app.use('/api/corrections',  correctionRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 
