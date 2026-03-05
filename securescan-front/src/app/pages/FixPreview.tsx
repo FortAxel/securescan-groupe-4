@@ -1,13 +1,16 @@
 import { useParams, useNavigate, useLocation, Navigate } from "react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { SeverityBadge } from "../components/SeverityBadge";
-import { ArrowLeft, Check, X, FileCode, Wrench, Info } from "lucide-react";
+import { ArrowLeft, Check, X, FileCode, Wrench, Info, Loader2, Send } from "lucide-react";
 import { mockVulnerabilities } from "../data/mockData";
 import { getCurrentProjectId, getCurrentAnalysisId } from "../lib/flow";
 import type { SeverityLevel } from "../constants/severity";
 import { normalizeSeverity } from "../constants/severity";
+import { validateCorrection, rejectCorrection } from "../api/corrections";
+import { applyCorrections } from "../api/apply";
+import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
 
 type FindingFromState = {
   id: string;
@@ -27,10 +30,64 @@ export function FixPreview() {
   const projectId = getCurrentProjectId(location);
   const analysisId = getCurrentAnalysisId(location);
   const findingFromState = (location.state as { finding?: FindingFromState })?.finding;
+  const [actionLoading, setActionLoading] = useState(false);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const findingId = id ? Number(id) : null;
 
   useEffect(() => {
     if (projectId === null && analysisId === null) navigate("/submit", { replace: true });
   }, [projectId, analysisId, navigate]);
+
+  const handleValidate = async () => {
+    if (findingId == null || isNaN(findingId)) return;
+    setMessage(null);
+    setActionLoading(true);
+    try {
+      await validateCorrection(findingId);
+      setMessage({ type: "success", text: "Correctif accepté." });
+    } catch (err) {
+      setMessage({ type: "error", text: getErrorMessage(err, GENERIC_ERROR_MESSAGE) });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (findingId == null || isNaN(findingId)) return;
+    setMessage(null);
+    setActionLoading(true);
+    try {
+      await rejectCorrection(findingId);
+      setMessage({ type: "success", text: "Correctif rejeté." });
+    } catch (err) {
+      setMessage({ type: "error", text: getErrorMessage(err, GENERIC_ERROR_MESSAGE) });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (analysisId == null) return;
+    setMessage(null);
+    setApplyLoading(true);
+    try {
+      const result = await applyCorrections(analysisId);
+      if (result.pullRequestUrl) {
+        setMessage({ type: "success", text: `PR créée : ${result.pullRequestUrl}` });
+        window.open(result.pullRequestUrl, "_blank");
+      } else if (result.zipDownloaded) {
+        setMessage({ type: "success", text: "ZIP corrigé téléchargé." });
+      } else if (result.correctionsApplied != null) {
+        setMessage({ type: "success", text: `${result.correctionsApplied} correction(s) appliquée(s).` });
+      }
+    } catch (err) {
+      setMessage({ type: "error", text: getErrorMessage(err, GENERIC_ERROR_MESSAGE) });
+    } finally {
+      setApplyLoading(false);
+    }
+  };
 
   const mockVuln = mockVulnerabilities.find((v) => v.id === id);
   const hasFullFix = !!mockVuln?.codeSnippet && !!mockVuln?.fixedCode;
@@ -78,17 +135,48 @@ export function FixPreview() {
               <p className="text-muted-foreground text-sm">{title || "Détail de la vulnérabilité"}</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate("/findings")} className="gap-2">
-              <X className="w-4 h-4" />
-              Rejeter
+          <div className="flex flex-wrap gap-2 items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReject}
+              disabled={actionLoading || findingId == null}
+              className="gap-2"
+            >
+              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+              Rejeter le correctif
             </Button>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-2">
-              <Check className="w-4 h-4" />
-              Accepter
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+              onClick={handleValidate}
+              disabled={actionLoading || findingId == null}
+            >
+              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Accepter le correctif
             </Button>
+            {analysisId != null && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleApply}
+                disabled={applyLoading}
+                className="gap-2"
+              >
+                {applyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Appliquer les modifications
+              </Button>
+            )}
           </div>
         </div>
+
+        {message && (
+          <div
+            className={`mb-4 p-3 rounded-lg text-sm ${message.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}
+          >
+            {message.text}
+          </div>
+        )}
 
         <Card className="p-5 mb-6 shadow-sm border rounded-xl">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -166,20 +254,20 @@ export function FixPreview() {
         )}
 
         <div className="flex flex-wrap justify-center gap-3 mt-8">
-          <Button variant="outline" size="lg" onClick={() => navigate("/findings")} className="gap-2">
+          <Button variant="outline" size="lg" onClick={handleReject} disabled={actionLoading || findingId == null} className="gap-2">
             <X className="w-5 h-5" />
             Rejeter le correctif
           </Button>
-          <Button
-            size="lg"
-            className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-            onClick={() => {
-              navigate("/findings");
-            }}
-          >
+          <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={handleValidate} disabled={actionLoading || findingId == null}>
             <Check className="w-5 h-5" />
             Accepter le correctif
           </Button>
+          {analysisId != null && (
+            <Button variant="secondary" size="lg" onClick={handleApply} disabled={applyLoading} className="gap-2">
+              {applyLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              Appliquer les modifications
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -5,13 +5,14 @@ import { Button } from "../components/ui/button";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { ScoreBadge } from "../components/ScoreBadge";
 import { Progress } from "../components/ui/progress";
-import { Shield, AlertCircle } from "lucide-react";
+import { Shield, AlertCircle, Send, Loader2 } from "lucide-react";
 import {
   mockVulnerabilities,
   mockSecurityScore,
   owaspCategories,
 } from "../data/mockData";
 import { getAnalysisResults } from "../api/analysis";
+import { applyCorrections } from "../api/apply";
 import { getProjectFindings, type ProjectFindingsResponse } from "../api/projects";
 import { getCurrentProjectId, getCurrentAnalysisId, setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
 import { ChartErrorBoundary } from "../components/ChartErrorBoundary";
@@ -202,6 +203,29 @@ export function Dashboard() {
   }, [projectId, analysisId, navigate]);
 
   const { summary, findings, loading, error } = useFindingsData(projectId, analysisId);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleApplyCorrections = async () => {
+    if (analysisId == null) return;
+    setApplyMessage(null);
+    setApplyLoading(true);
+    try {
+      const result = await applyCorrections(analysisId);
+      if (result.pullRequestUrl) {
+        setApplyMessage({ type: "success", text: "PR créée. Ouverture dans un nouvel onglet." });
+        window.open(result.pullRequestUrl, "_blank");
+      } else if (result.zipDownloaded) {
+        setApplyMessage({ type: "success", text: "ZIP corrigé téléchargé." });
+      } else if (result.correctionsApplied != null) {
+        setApplyMessage({ type: "success", text: `${result.correctionsApplied} correction(s) appliquée(s).` });
+      }
+    } catch (err) {
+      setApplyMessage({ type: "error", text: getErrorMessage(err, GENERIC_ERROR_MESSAGE) });
+    } finally {
+      setApplyLoading(false);
+    }
+  };
 
   const severityData = [
     { name: "Critique", value: summary.critical, color: "var(--severity-critical)" },
@@ -245,20 +269,41 @@ export function Dashboard() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={() =>
-              navigate("/findings", {
-                state: {
-                  projectId: projectId ?? null,
-                  analysisId: analysisId ?? null,
-                },
-              })
-            }
-            className="bg-[var(--primary)] hover:bg-[var(--primary)]/90 w-full sm:w-auto shrink-0"
-          >
-            Voir toutes les vulnérabilités
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() =>
+                navigate("/findings", {
+                  state: {
+                    projectId: projectId ?? null,
+                    analysisId: analysisId ?? null,
+                  },
+                })
+              }
+              className="bg-[var(--primary)] hover:bg-[var(--primary)]/90 shrink-0"
+            >
+              Voir toutes les vulnérabilités
+            </Button>
+            {analysisId != null && (
+              <Button
+                variant="secondary"
+                onClick={handleApplyCorrections}
+                disabled={applyLoading}
+                className="gap-2 shrink-0"
+              >
+                {applyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Appliquer les modifications
+              </Button>
+            )}
+          </div>
         </div>
+
+        {applyMessage && (
+          <div
+            className={`mb-4 p-3 rounded-lg text-sm ${applyMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}
+          >
+            {applyMessage.text}
+          </div>
+        )}
 
         <div
           key="dashboard-error"
