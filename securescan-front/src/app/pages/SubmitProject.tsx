@@ -1,19 +1,22 @@
-import { useState, useRef } from "react";
-import { useNavigate, Navigate } from "react-router";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, Navigate, useLocation } from "react-router";
 import { Button } from "../components/ui/button";
 import { isLoggedIn } from "../lib/auth";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Shield, Upload, GitBranch, AlertCircle } from "lucide-react";
+import { Shield, Upload, GitBranch, AlertCircle, Loader2 } from "lucide-react";
 import { getApiBaseUrl } from "../api/client";
-import { uploadProjectZip } from "../api/projects";
-import { redirectToGitHubOAuth } from "../lib/githubAuth";
+import { uploadProjectZip, startProjectScan } from "../api/projects";
+import { redirectToGitHubOAuth, setPendingScan } from "../lib/githubAuth";
+import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
+import { setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
 
 const GIT_URL_REGEX = /^(https?:\/\/[^\s]+|git@[^\s]+\.git)$/i;
 
 export function SubmitProject() {
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [gitUrl, setGitUrl] = useState("");
   const [projectName, setProjectName] = useState("");
@@ -21,6 +24,7 @@ export function SubmitProject() {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   if (!isLoggedIn()) {
     return <Navigate to="/login" replace />;
@@ -42,6 +46,39 @@ export function SubmitProject() {
     }
     return null;
   };
+
+  const runScan = async (url: string, name?: string) => {
+    setError(null);
+    setScanning(true);
+    try {
+      const data = await startProjectScan({ url, name });
+      setCurrentProjectId(data.projectId);
+      setCurrentAnalysisId(data.analysisId);
+      setScanning(false);
+      navigate("/dashboard", {
+        state: { projectId: data.projectId, analysisId: data.analysisId },
+        replace: true,
+      });
+    } catch (err: unknown) {
+      setScanning(false);
+      const res = (err as { response?: { status?: number; data?: { error?: string; redirectTo?: string } } })?.response;
+      if (res?.status === 401 && res.data?.error === "GitHub account not connected") {
+        setPendingScan(url, name);
+        redirectToGitHubOAuth(getApiBaseUrl(), res.data?.redirectTo ?? "/api/githubAuth");
+        return;
+      }
+      setError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
+    }
+  };
+
+  const pendingScanRan = useRef(false);
+  useEffect(() => {
+    const pending = (location.state as { pendingScan?: { gitUrl: string; name?: string } })?.pendingScan;
+    if (!pending?.gitUrl || pendingScanRan.current) return;
+    pendingScanRan.current = true;
+    runScan(pending.gitUrl, pending.name);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,12 +104,13 @@ export function SubmitProject() {
           redirectToGitHubOAuth(getApiBaseUrl(), res.data.redirectTo);
           return;
         }
-        setError((res?.data?.error as string) || (err as Error)?.message || "Erreur lors de l’upload.");
+        setError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
       }
       return;
     }
     const url = gitUrl.trim();
-    navigate("/scan", { state: { scanning: true, gitUrl: url, name: projectName.trim() || undefined }, replace: true });
+    const name = projectName.trim() || undefined;
+    runScan(url, name);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -234,12 +272,22 @@ export function SubmitProject() {
               </div>
             </div>
 
+            {(scanning || uploading) && (
+              <div className="p-4 rounded-lg bg-[var(--primary)]/10 border border-[var(--primary)]/20 flex items-center gap-3 text-sm text-foreground">
+                <Loader2 className="w-5 h-5 animate-spin shrink-0 text-[var(--primary)]" />
+                <span>
+                  {uploading
+                    ? "Envoi du fichier en cours…"
+                    : "L'analyse est en cours, patientez quelques instants. Vous serez redirigé vers le tableau de bord à la fin."}
+                </span>
+              </div>
+            )}
             <Button
               type="submit"
-              className="w-full h-11 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
-              disabled={!canSubmit || uploading}
+              className="w-full h-11 bg-[var(--primary)] hover:bg-[var(--primary)]/90 disabled:opacity-60 disabled:pointer-events-none"
+              disabled={!canSubmit || uploading || scanning}
             >
-              {uploading ? "Envoi en cours…" : "Lancer l'analyse"}
+              {uploading ? "Envoi en cours…" : scanning ? "Analyse en cours…" : "Lancer l'analyse"}
             </Button>
           </form>
         </Card>

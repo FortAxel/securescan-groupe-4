@@ -6,6 +6,7 @@ import { Card } from "../components/ui/card";
 import { Shield, Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { setLoggedIn } from "../lib/auth";
 import { login as apiLogin } from "../api/auth";
+import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
 
 export function Login() {
   const navigate = useNavigate();
@@ -23,20 +24,7 @@ export function Login() {
       await apiLogin(email, password);
       navigate("/");
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { error?: string }; status?: number }; code?: string };
-      const msg = ax.response?.data?.error ?? null;
-      const isNetworkError = !ax.response || ax.code === "ERR_NETWORK";
-      if (msg) {
-        setError(msg);
-      } else if (isNetworkError) {
-        setLoggedIn({
-          email,
-          username: email.split("@")[0] || "utilisateur",
-        });
-        navigate("/");
-      } else {
-        setError("Une erreur est survenue.");
-      }
+      setError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
     } finally {
       setLoading(false);
     }

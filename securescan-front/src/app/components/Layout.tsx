@@ -9,7 +9,7 @@ export function Layout() {
   useEffect(() => {
     const pending = getAndClearPendingScan();
     if (pending?.gitUrl) {
-      navigate("/scan", { state: { scanning: true, gitUrl: pending.gitUrl, name: pending.name }, replace: true });
+      navigate("/submit", { state: { pendingScan: { gitUrl: pending.gitUrl, name: pending.name } }, replace: true });
     }
   }, [navigate]);
 

@@ -15,6 +15,7 @@ import { getAnalysisResults } from "../api/analysis";
 import { getProjectFindings, type ProjectFindingsResponse } from "../api/projects";
 import { getCurrentProjectId, getCurrentAnalysisId, setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
 import { ChartErrorBoundary } from "../components/ChartErrorBoundary";
+import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
 
 // Constantes pour le graphique OWASP (spec: couleurs par sévérité)
 const SEVERITY_COLORS = {
@@ -153,7 +154,7 @@ function useFindingsData(projectId: number | undefined, analysisId: number | und
       loadFromAnalysis()
         .catch((err) => {
           if (!cancelled) {
-            setError(err?.message ?? "Erreur lors du chargement des résultats. Vérifiez que le backend (port 3000) est démarré et que vous êtes connecté.");
+            setError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
             setErrorState();
           }
         })
@@ -164,7 +165,7 @@ function useFindingsData(projectId: number | undefined, analysisId: number | und
       loadFromProject()
         .catch((err) => {
           if (!cancelled) {
-            setError(err?.message ?? "Erreur lors du chargement des résultats. Vérifiez que le backend (port 3000) est démarré et que vous êtes connecté.");
+            setError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
             setErrorState();
           }
         })

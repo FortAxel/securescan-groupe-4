@@ -24,6 +24,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { Shield, Search, ArrowUpDown, TrendingUp, TrendingDown, Calendar } from "lucide-react";
 import { getMyScans, type ScanReportFromApi } from "../api/me";
 import { setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
+import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
 
 type SortField = "date" | "score" | "projectName";
 type SortDirection = "asc" | "desc";
@@ -53,7 +54,7 @@ export function ReportHistory() {
       .then(setScans)
       .catch((err) => {
         setScans([]);
-        setLoadError(err?.message ?? "Impossible de charger l'historique.");
+        setLoadError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
       })
       .finally(() => setLoading(false));
   }, [allowed]);
@@ -392,7 +393,7 @@ export function ReportHistory() {
                           onClick={() => {
                             setCurrentProjectId(report.projectId);
                             setCurrentAnalysisId(Number(report.id));
-                            navigate("/scan", { state: { projectId: report.projectId, analysisId: Number(report.id) } });
+                            navigate("/dashboard", { state: { projectId: report.projectId, analysisId: Number(report.id) } });
                           }}
                         >
                           Voir la progression

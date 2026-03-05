@@ -25,6 +25,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/s
 import { SeverityBadge } from "../components/SeverityBadge";
 import { Shield, Search, ArrowLeft, FileCode, Wrench, ChevronRight, AlertTriangle } from "lucide-react";
 import { owaspCategories, scanTools } from "../data/mockData";
+import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
 
 type FindingItem = {
   id: string;
@@ -83,7 +84,7 @@ export function FindingsList() {
           );
         })
         .catch((err) => {
-          if (!cancelled) setLoadError(err?.message ?? "Erreur de chargement");
+          if (!cancelled) setLoadError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
@@ -106,7 +107,7 @@ export function FindingsList() {
           );
         })
         .catch((err) => {
-          if (!cancelled) setLoadError(err?.message ?? "Erreur de chargement");
+          if (!cancelled) setLoadError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
         })
         .finally(() => {
           if (!cancelled) setLoading(false);

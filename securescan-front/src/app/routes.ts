@@ -2,7 +2,6 @@ import React from "react";
 import { createBrowserRouter } from "react-router";
 import { HomePage } from "./pages/HomePage";
 import { SubmitProject } from "./pages/SubmitProject";
-import { ScanProgress } from "./pages/ScanProgress";
 import { Dashboard } from "./pages/Dashboard";
 import { FindingsList } from "./pages/FindingsList";
 import { FixPreview } from "./pages/FixPreview";
@@ -34,10 +33,6 @@ export const router = createBrowserRouter([
       {
         path: "submit",
         Component: SubmitProject,
-      },
-      {
-        path: "scan",
-        Component: ScanProgress,
       },
       {
         path: "dashboard",

@@ -17,6 +17,7 @@ import {
 import { isLoggedIn, logout, getStoredUser } from "../lib/auth";
 import { getCurrentUser, type CurrentUser } from "../api/auth";
 import { hasCurrentProject } from "../lib/flow";
+import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
 
 function formatMemberSince(createdAt?: string): string | null {
   if (!createdAt) return null;
@@ -58,7 +59,7 @@ export function Profile() {
     setError(null);
     getCurrentUser()
       .then(setUser)
-      .catch(() => {
+      .catch((err) => {
         const stored = getStoredUser();
         if (stored) {
           setUser({
@@ -67,7 +68,7 @@ export function Profile() {
             username: stored.username,
           });
         } else {
-          setError("Impossible de charger le profil.");
+          setError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
         }
       })
       .finally(() => setLoading(false));
