@@ -4,6 +4,7 @@ import {
   findValidatedCorrectionsByAnalysis,
 } from '../services/db/databaseManager.js';
 import { generateHtmlReport } from '../services/report.service.js';
+import puppeteer from 'puppeteer';
 
 // ─── Get results ──────────────────────────────────────────────────────────────
 
@@ -126,25 +127,24 @@ const exportReport = async (req, res, next) => {
   try {
     const { analysisId } = req.params;
 
-    // 1. Vérifie que l'analyse appartient bien à l'utilisateur
     const analysis = await findAnalysisByIdAndUser(Number(analysisId), req.userId);
     if (!analysis) return res.status(404).json({ error: 'Analysis not found' });
 
-    // 2. Récupère les findings
     const findings = await findFindingsByAnalysis(analysis.id);
-
-    // 3. Récupère les corrections validées via databaseManager
     const corrections = await findValidatedCorrectionsByAnalysis(analysis.id);
 
-    // 4. Génère le HTML
     const html = generateHtmlReport(analysis, findings, corrections);
 
-    // 5. Envoie en téléchargement
-    const filename = `securescan-report-${analysis.project.name.replace(/\s+/g, '-').toLowerCase()}-${analysisId}.html`;
+    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdf = await page.pdf({ format: 'A4', printBackground: true });
+    await browser.close();
 
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const filename = `securescan-report-${analysis.project.name.replace(/\s+/g, '-').toLowerCase()}-${analysisId}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return res.send(html);
+    return res.send(pdf);
   } catch (err) {
     next(err);
   }

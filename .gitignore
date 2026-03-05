@@ -192,10 +192,7 @@ scan-results.json
 # Temp repo dir
 # =========================
 
-# Temp directories content
-tmp/uploads/*
-tmp/repos/*
-
-# Keep the folders
-!tmp/uploads/.gitkeep
-!tmp/repos/.gitkeep
+securescan-backend/tmp/uploads/*
+securescan-backend/tmp/repos/*
+!securescan-backend/tmp/uploads/.gitkeep
+!securescan-backend/tmp/repos/.gitkeep

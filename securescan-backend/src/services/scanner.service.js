@@ -41,7 +41,6 @@ function computeScore(findings) {
  * }}
  */
 async function runAllScans(projectPath) {
-  console.log(`[Scanner] Starting scans on: ${projectPath}`);
 
   const results = await Promise.all([
     runSemgrep(projectPath),
@@ -58,13 +57,11 @@ async function runAllScans(projectPath) {
     }
     if (result.findings && result.findings.length) {
       allFindings.push(...result.findings);
-      console.log(`[Scanner] ${result.tool}: ${result.findings.length} finding(s)`);
     }
   }
 
   const { score, grade } = computeScore(allFindings);
 
-  console.log(`[Scanner] Done. ${allFindings.length} findings total — Score: ${score} (${grade})`);
 
   return { findings: allFindings, score, grade, errors };
 }

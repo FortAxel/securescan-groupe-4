@@ -84,10 +84,8 @@ export async function applyCorrectionsHandler(req, res) {
     if (!corrections.length) {
       return res.status(400).json({ error: 'No validated corrections to apply' });
     }
-    console.log('[apply] raw corrections:', JSON.stringify(corrections, null, 2));
 
     const mapped = mapCorrections(corrections, project.localPath);
-    console.log('[apply] mapped corrections:', JSON.stringify(mapped, null, 2));
 
     // ── GIT ────────────────────────────────────────────────────────────────
 

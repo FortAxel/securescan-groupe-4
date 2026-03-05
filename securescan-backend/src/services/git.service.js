@@ -162,7 +162,6 @@ export async function applyCorrections(corrections, repoPath) {
     lines.splice(start, end - start + 1, correction.newCode);
 
     fs.writeFileSync(filePath, lines.join('\n'));
-    console.log(`[applyCorrections] Applied fix at ${correction.filePath}:${correction.lineStart}`);
   });
 }
 

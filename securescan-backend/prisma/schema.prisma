@@ -21,7 +21,7 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  githubId              String?   @unique
+  githubId              String?  
   githubAccessToken     String?   @db.Text
   githubTokenExpiresAt  DateTime?
 

@@ -25,7 +25,8 @@ function severityBadge(severity) {
  * @param {Object} f - Finding object
  * @param {number} index
  */
-function findingRow(f, index) {
+function findingRow(f, index, localPath) {
+  const relativePath = f.filePath ? f.filePath.replace(localPath + '/', '') : '—';
   return `
     <tr style="background:${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
       <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">${f.id}</td>
@@ -33,10 +34,9 @@ function findingRow(f, index) {
       <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">${f.owaspCategory || '—'}</td>
       <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">${f.tool}</td>
       <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">${f.title}</td>
-      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">${f.filePath || '—'}${f.lineStart ? `:${f.lineStart}` : ''}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:11px;color:#555;word-break:break-all;max-width:200px;">${relativePath}${f.lineStart ? `:${f.lineStart}` : ''}</td>
     </tr>`;
 }
-
 /**
  * Builds an HTML row for a validated correction.
  * @param {Object} c - Correction object
@@ -87,7 +87,8 @@ function gradeColor(grade) {
  * @returns {string} Full HTML document as string
  */
 export function generateHtmlReport(analysis, findings, corrections) {
-  const project     = analysis.project;
+  const project = analysis.project;
+  const localPath = project.localPath || '';
   const reportDate  = new Date().toLocaleDateString('fr-FR', {
     day: '2-digit', month: 'long', year: 'numeric',
   });
@@ -116,242 +117,243 @@ export function generateHtmlReport(analysis, findings, corrections) {
 
   const validatedCorrections = corrections.filter(c => c.status === 'VALIDATED');
 
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rapport SecureScan — ${escapeHtml(project.name)}</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #2c3e50; }
-    .page { max-width: 1100px; margin: 0 auto; background: #fff; }
+  return `
+  <!DOCTYPE html>
+    <html lang="fr">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Rapport SecureScan — ${escapeHtml(project.name)}</title>
+        <style>
+          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #2c3e50; }
+          .page { max-width: 1100px; margin: 0 auto; background: #fff; }
 
-    /* ── Header ── */
-    .header {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
-      color: #fff; padding: 40px 48px; display: flex;
-      justify-content: space-between; align-items: flex-start;
-    }
-    .header-brand { font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
-                    color: #a0aec0; margin-bottom: 8px; }
-    .header-title { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
-    .header-sub   { font-size: 14px; color: #a0aec0; }
-    .score-box {
-      text-align: center; background: rgba(255,255,255,0.08);
-      border-radius: 12px; padding: 20px 28px;
-    }
-    .score-grade {
-      font-size: 52px; font-weight: 800; line-height: 1;
-      color: ${gradeColor(analysis.grade)};
-    }
-    .score-value { font-size: 13px; color: #a0aec0; margin-top: 4px; }
+          /* ── Header ── */
+          .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            color: #fff; padding: 40px 48px; display: flex;
+            justify-content: space-between; align-items: flex-start;
+          }
+          .header-brand { font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+                          color: #a0aec0; margin-bottom: 8px; }
+          .header-title { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+          .header-sub   { font-size: 14px; color: #a0aec0; }
+          .score-box {
+            text-align: center; background: rgba(255,255,255,0.08);
+            border-radius: 12px; padding: 20px 28px;
+          }
+          .score-grade {
+            font-size: 52px; font-weight: 800; line-height: 1;
+            color: ${gradeColor(analysis.grade)};
+          }
+          .score-value { font-size: 13px; color: #a0aec0; margin-top: 4px; }
 
-    /* ── Sections ── */
-    .section { padding: 36px 48px; border-bottom: 1px solid #e9ecef; }
-    .section:last-of-type { border-bottom: none; }
-    .section-title {
-      font-size: 18px; font-weight: 700; color: #1a1a2e;
-      margin-bottom: 20px; padding-bottom: 10px;
-      border-bottom: 3px solid #0f3460; display: inline-block;
-    }
+          /* ── Sections ── */
+          .section { padding: 36px 48px; border-bottom: 1px solid #e9ecef; }
+          .section:last-of-type { border-bottom: none; }
+          .section-title {
+            font-size: 18px; font-weight: 700; color: #1a1a2e;
+            margin-bottom: 20px; padding-bottom: 10px;
+            border-bottom: 3px solid #0f3460; display: inline-block;
+          }
 
-    /* ── Meta grid ── */
-    .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .meta-card {
-      background: #f8f9fa; border-radius: 8px; padding: 16px 20px;
-      border-left: 4px solid #0f3460;
-    }
-    .meta-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6c757d; }
-    .meta-value { font-size: 16px; font-weight: 600; margin-top: 4px; color: #1a1a2e; }
+          /* ── Meta grid ── */
+          .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+          .meta-card {
+            background: #f8f9fa; border-radius: 8px; padding: 16px 20px;
+            border-left: 4px solid #0f3460;
+          }
+          .meta-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6c757d; }
+          .meta-value { font-size: 16px; font-weight: 600; margin-top: 4px; color: #1a1a2e; }
 
-    /* ── Summary cards ── */
-    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
-    .summary-card { border-radius: 8px; padding: 16px; text-align: center; }
-    .summary-card .count { font-size: 32px; font-weight: 800; }
-    .summary-card .label { font-size: 11px; text-transform: uppercase; margin-top: 2px; opacity: 0.85; }
+          /* ── Summary cards ── */
+          .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+          .summary-card { border-radius: 8px; padding: 16px; text-align: center; }
+          .summary-card .count { font-size: 32px; font-weight: 800; }
+          .summary-card .label { font-size: 11px; text-transform: uppercase; margin-top: 2px; opacity: 0.85; }
 
-    /* ── Table ── */
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    thead tr { background: #1a1a2e; color: #fff; }
-    thead th { padding: 12px 14px; text-align: left; font-weight: 600;
-               font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+          /* ── Table ── */
+          table { width: 100%; border-collapse: collapse; font-size: 14px; }
+          thead tr { background: #1a1a2e; color: #fff; }
+          thead th { padding: 12px 14px; text-align: left; font-weight: 600;
+                    font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    /* ── Executive summary ── */
-    .exec-box {
-      background: #f8f9fa; border-left: 4px solid #0f3460;
-      border-radius: 0 8px 8px 0; padding: 20px 24px; font-size: 15px; line-height: 1.7;
-    }
-    .exec-box strong { color: #c0392b; }
+          /* ── Executive summary ── */
+          .exec-box {
+            background: #f8f9fa; border-left: 4px solid #0f3460;
+            border-radius: 0 8px 8px 0; padding: 20px 24px; font-size: 15px; line-height: 1.7;
+          }
+          .exec-box strong { color: #c0392b; }
 
-    /* ── Footer ── */
-    .footer {
-      background: #1a1a2e; color: #a0aec0;
-      padding: 24px 48px; display: flex;
-      justify-content: space-between; align-items: center; font-size: 13px;
-    }
-    .footer-brand { color: #fff; font-weight: 700; font-size: 15px; }
-  </style>
-</head>
-<body>
-<div class="page">
+          /* ── Footer ── */
+          .footer {
+            background: #1a1a2e; color: #a0aec0;
+            padding: 24px 48px; display: flex;
+            justify-content: space-between; align-items: center; font-size: 13px;
+          }
+          .footer-brand { color: #fff; font-weight: 700; font-size: 15px; }
+        </style>
+      </head>
+      <body>
+        <div class="page">
 
-  <!-- ══ HEADER ══ -->
-  <div class="header">
-    <div>
-      <div class="header-brand">SecureScan — Security Report</div>
-      <div class="header-title">${escapeHtml(project.name)}</div>
-      <div class="header-sub">Rapport généré le ${reportDate}</div>
-    </div>
-    <div class="score-box">
-      <div class="score-grade">${analysis.grade || '—'}</div>
-      <div class="score-value">Score ${analysis.score ?? '—'} / 100</div>
-    </div>
-  </div>
+        <!-- ══ HEADER ══ -->
+        <div class="header">
+          <div>
+            <div class="header-brand">SecureScan — Security Report</div>
+            <div class="header-title">${escapeHtml(project.name)}</div>
+            <div class="header-sub">Rapport généré le ${reportDate}</div>
+          </div>
+          <div class="score-box">
+            <div class="score-grade">${analysis.grade || '—'}</div>
+            <div class="score-value">Score ${analysis.score ?? '—'} / 100</div>
+          </div>
+        </div>
 
-  <!-- ══ METADATA ══ -->
-  <div class="section">
-    <div class="section-title">Informations générales</div>
-    <div class="meta-grid">
-      <div class="meta-card">
-        <div class="meta-label">Projet</div>
-        <div class="meta-value">${escapeHtml(project.name)}</div>
+        <!-- ══ METADATA ══ -->
+        <div class="section">
+          <div class="section-title">Informations générales</div>
+          <div class="meta-grid">
+            <div class="meta-card">
+              <div class="meta-label">Projet</div>
+              <div class="meta-value">${escapeHtml(project.name)}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Analyse #</div>
+              <div class="meta-value">${analysis.id}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Statut</div>
+              <div class="meta-value">${analysis.status}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Démarrée le</div>
+              <div class="meta-value">${analysis.startedAt ? new Date(analysis.startedAt).toLocaleDateString('fr-FR') : '—'}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Terminée le</div>
+              <div class="meta-value">${analysis.finishedAt ? new Date(analysis.finishedAt).toLocaleDateString('fr-FR') : '—'}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Corrections validées</div>
+              <div class="meta-value">${validatedCorrections.length} / ${corrections.length}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ EXECUTIVE SUMMARY ══ -->
+        <div class="section">
+          <div class="section-title">Résumé exécutif</div>
+          <div class="exec-box">
+            L'analyse du projet <strong>${escapeHtml(project.name)}</strong> a révélé
+            <strong>${totalFindings} finding${totalFindings > 1 ? 's' : ''}</strong> au total,
+            dont <strong>${criticalCount} critique${criticalCount > 1 ? 's' : ''}</strong>
+            et <strong>${highCount} haute${highCount > 1 ? 's' : ''}</strong> sévérité.
+            Le score global de sécurité est de <strong>${analysis.score ?? '—'}/100</strong>
+            (grade <strong>${analysis.grade || '—'}</strong>).
+            ${validatedCorrections.length > 0
+              ? `<br/><br/>${validatedCorrections.length} correction${validatedCorrections.length > 1 ? 's ont' : ' a'} été validée${validatedCorrections.length > 1 ? 's' : ''} et appliquée${validatedCorrections.length > 1 ? 's' : ''}.`
+              : '<br/><br/>Aucune correction n\'a encore été validée.'}
+          </div>
+
+          <!-- Severity cards -->
+          <div class="summary-grid" style="margin-top:24px;">
+            <div class="summary-card" style="background:#7c0000;color:#fff;">
+              <div class="count">${summary.critical}</div>
+              <div class="label">Critical</div>
+            </div>
+            <div class="summary-card" style="background:#c0392b;color:#fff;">
+              <div class="count">${summary.high}</div>
+              <div class="label">High</div>
+            </div>
+            <div class="summary-card" style="background:#e67e22;color:#fff;">
+              <div class="count">${summary.medium}</div>
+              <div class="label">Medium</div>
+            </div>
+            <div class="summary-card" style="background:#f1c40f;color:#000;">
+              <div class="count">${summary.low}</div>
+              <div class="label">Low</div>
+            </div>
+            <div class="summary-card" style="background:#2980b9;color:#fff;">
+              <div class="count">${summary.info}</div>
+              <div class="label">Info</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ OWASP BREAKDOWN ══ -->
+        <div class="section">
+          <div class="section-title">Répartition OWASP</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Catégorie OWASP</th>
+                <th>Nombre de findings</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${owaspRows || '<tr><td colspan="2" style="padding:16px;text-align:center;color:#6c757d;">Aucune donnée OWASP</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ══ FINDINGS TABLE ══ -->
+        <div class="section">
+          <div class="section-title">Détail des findings (${totalFindings})</div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Sévérité</th>
+                <th>OWASP</th>
+                <th>Outil</th>
+                <th>Titre</th>
+                <th>Fichier / Ligne</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${findings.length
+                ? findings.map((f, i) => findingRow(f, i, localPath)).join('')
+                : '<tr><td colspan="6" style="padding:16px;text-align:center;color:#6c757d;">Aucun finding</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ══ CORRECTIONS ══ -->
+        <div class="section">
+          <div class="section-title">Corrections appliquées (${validatedCorrections.length})</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Finding #</th>
+                <th>Type</th>
+                <th>Code original</th>
+                <th>Code corrigé</th>
+                <th>Validée le</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${validatedCorrections.length
+                ? validatedCorrections.map((c, i) => correctionRow(c, i)).join('')
+                : '<tr><td colspan="5" style="padding:16px;text-align:center;color:#6c757d;">Aucune correction validée</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ══ FOOTER ══ -->
+        <div class="footer">
+          <div>
+            <div class="footer-brand">SecureScan by CyberSafe</div>
+            <div>Rapport confidentiel — usage interne uniquement</div>
+          </div>
+          <div style="text-align:right;">
+            <div>Généré le ${reportDate}</div>
+            <div>Analyse #${analysis.id} — Projet ${escapeHtml(project.name)}</div>
+          </div>
+        </div>
+
       </div>
-      <div class="meta-card">
-        <div class="meta-label">Analyse #</div>
-        <div class="meta-value">${analysis.id}</div>
-      </div>
-      <div class="meta-card">
-        <div class="meta-label">Statut</div>
-        <div class="meta-value">${analysis.status}</div>
-      </div>
-      <div class="meta-card">
-        <div class="meta-label">Démarrée le</div>
-        <div class="meta-value">${analysis.startedAt ? new Date(analysis.startedAt).toLocaleDateString('fr-FR') : '—'}</div>
-      </div>
-      <div class="meta-card">
-        <div class="meta-label">Terminée le</div>
-        <div class="meta-value">${analysis.finishedAt ? new Date(analysis.finishedAt).toLocaleDateString('fr-FR') : '—'}</div>
-      </div>
-      <div class="meta-card">
-        <div class="meta-label">Corrections validées</div>
-        <div class="meta-value">${validatedCorrections.length} / ${corrections.length}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ EXECUTIVE SUMMARY ══ -->
-  <div class="section">
-    <div class="section-title">Résumé exécutif</div>
-    <div class="exec-box">
-      L'analyse du projet <strong>${escapeHtml(project.name)}</strong> a révélé
-      <strong>${totalFindings} finding${totalFindings > 1 ? 's' : ''}</strong> au total,
-      dont <strong>${criticalCount} critique${criticalCount > 1 ? 's' : ''}</strong>
-      et <strong>${highCount} haute${highCount > 1 ? 's' : ''}</strong> sévérité.
-      Le score global de sécurité est de <strong>${analysis.score ?? '—'}/100</strong>
-      (grade <strong>${analysis.grade || '—'}</strong>).
-      ${validatedCorrections.length > 0
-        ? `<br/><br/>${validatedCorrections.length} correction${validatedCorrections.length > 1 ? 's ont' : ' a'} été validée${validatedCorrections.length > 1 ? 's' : ''} et appliquée${validatedCorrections.length > 1 ? 's' : ''}.`
-        : '<br/><br/>Aucune correction n\'a encore été validée.'}
-    </div>
-
-    <!-- Severity cards -->
-    <div class="summary-grid" style="margin-top:24px;">
-      <div class="summary-card" style="background:#7c0000;color:#fff;">
-        <div class="count">${summary.critical}</div>
-        <div class="label">Critical</div>
-      </div>
-      <div class="summary-card" style="background:#c0392b;color:#fff;">
-        <div class="count">${summary.high}</div>
-        <div class="label">High</div>
-      </div>
-      <div class="summary-card" style="background:#e67e22;color:#fff;">
-        <div class="count">${summary.medium}</div>
-        <div class="label">Medium</div>
-      </div>
-      <div class="summary-card" style="background:#f1c40f;color:#000;">
-        <div class="count">${summary.low}</div>
-        <div class="label">Low</div>
-      </div>
-      <div class="summary-card" style="background:#2980b9;color:#fff;">
-        <div class="count">${summary.info}</div>
-        <div class="label">Info</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ OWASP BREAKDOWN ══ -->
-  <div class="section">
-    <div class="section-title">Répartition OWASP</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Catégorie OWASP</th>
-          <th>Nombre de findings</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${owaspRows || '<tr><td colspan="2" style="padding:16px;text-align:center;color:#6c757d;">Aucune donnée OWASP</td></tr>'}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- ══ FINDINGS TABLE ══ -->
-  <div class="section">
-    <div class="section-title">Détail des findings (${totalFindings})</div>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Sévérité</th>
-          <th>OWASP</th>
-          <th>Outil</th>
-          <th>Titre</th>
-          <th>Fichier / Ligne</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${findings.length
-          ? findings.map((f, i) => findingRow(f, i)).join('')
-          : '<tr><td colspan="6" style="padding:16px;text-align:center;color:#6c757d;">Aucun finding</td></tr>'}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- ══ CORRECTIONS ══ -->
-  <div class="section">
-    <div class="section-title">Corrections appliquées (${validatedCorrections.length})</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Finding #</th>
-          <th>Type</th>
-          <th>Code original</th>
-          <th>Code corrigé</th>
-          <th>Validée le</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${validatedCorrections.length
-          ? validatedCorrections.map((c, i) => correctionRow(c, i)).join('')
-          : '<tr><td colspan="5" style="padding:16px;text-align:center;color:#6c757d;">Aucune correction validée</td></tr>'}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- ══ FOOTER ══ -->
-  <div class="footer">
-    <div>
-      <div class="footer-brand">SecureScan by CyberSafe</div>
-      <div>Rapport confidentiel — usage interne uniquement</div>
-    </div>
-    <div style="text-align:right;">
-      <div>Généré le ${reportDate}</div>
-      <div>Analyse #${analysis.id} — Projet ${escapeHtml(project.name)}</div>
-    </div>
-  </div>
-
-</div>
-</body>
-</html>`;
+    </body>
+  </html>`;
 }

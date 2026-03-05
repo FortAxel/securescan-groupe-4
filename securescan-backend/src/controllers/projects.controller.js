@@ -180,7 +180,7 @@ export async function createFromZip(req, res) {
     });
 
   } catch (err) {
-    console.log(err.message);
+    console.error(err.message);
     if (analysis?.id) {
       await updateAnalysis(analysis.id, { status: 'ERROR', errorMessage: err.message }).catch(() => {});
     }

@@ -46,7 +46,6 @@ export function FindingsList() {
   const location = useLocation();
   const projectId = getCurrentProjectId(location) ?? undefined;
   const analysisId = getCurrentAnalysisId(location) ?? undefined;
-  console.log('[FindingsList] projectId:', projectId, 'analysisId:', analysisId);
 
   // Garder la session alignée avec le contexte (state ou session) pour rafraîchissement / autres navigations
   useEffect(() => {

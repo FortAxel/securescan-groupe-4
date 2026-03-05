@@ -32,8 +32,6 @@ export const redirectToGithub = (req, res) => {
  */
 export const githubCallback = async (req, res) => {
   const { code, state } = req.query;
-  console.log('[githubCallback] code:', code);
-  console.log('[githubCallback] state:', state);
   try {
     const decoded = jwt.verify(state, process.env.JWT_SECRET);
     const userId = decoded.userId;
