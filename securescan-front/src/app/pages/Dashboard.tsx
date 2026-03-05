@@ -5,18 +5,18 @@ import { Button } from "../components/ui/button";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { ScoreBadge } from "../components/ScoreBadge";
 import { Progress } from "../components/ui/progress";
-import { Shield, AlertCircle, Send, Loader2 } from "lucide-react";
+import { Shield, AlertCircle, Send, Loader2, FileDown } from "lucide-react";
 import {
   mockVulnerabilities,
-  mockSecurityScore,
   owaspCategories,
 } from "../data/mockData";
-import { getAnalysisResults } from "../api/analysis";
+import { getAnalysisResults, downloadAnalysisReport } from "../api/analysis";
 import { applyCorrections } from "../api/apply";
 import { getProjectFindings, type ProjectFindingsResponse } from "../api/projects";
 import { getCurrentProjectId, getCurrentAnalysisId, setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
 import { ChartErrorBoundary } from "../components/ChartErrorBoundary";
 import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
+import { shortFilePath } from "../lib/filePath";
 import type { SeverityLevel } from "../constants/severity";
 import { SEVERITY_LEVELS } from "../constants/severity";
 
@@ -121,7 +121,7 @@ function useFindingsData(projectId: number | undefined, analysisId: number | und
           high: data.high,
           medium: data.medium,
           low: data.low,
-          totalVulnerabilities: data.totalVulnerabilities,
+          totalVulnerabilities: data.totalVulnerabilities ?? 0,
         });
         setFindings(
           data.findings.map((f) => ({
@@ -205,6 +205,7 @@ export function Dashboard() {
   const { summary, findings, loading, error } = useFindingsData(projectId, analysisId);
   const [applyLoading, setApplyLoading] = useState(false);
   const [applyMessage, setApplyMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const handleApplyCorrections = async () => {
     if (analysisId == null) return;
@@ -224,6 +225,20 @@ export function Dashboard() {
       setApplyMessage({ type: "error", text: getErrorMessage(err, GENERIC_ERROR_MESSAGE) });
     } finally {
       setApplyLoading(false);
+    }
+  };
+
+  const handleExportReportPdf = async () => {
+    if (analysisId == null) return;
+    setReportLoading(true);
+    setApplyMessage(null);
+    try {
+      await downloadAnalysisReport(analysisId);
+      setApplyMessage({ type: "success", text: "Rapport PDF téléchargé." });
+    } catch (err) {
+      setApplyMessage({ type: "error", text: getErrorMessage(err, "Impossible de télécharger le rapport.") });
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -284,15 +299,26 @@ export function Dashboard() {
               Voir toutes les vulnérabilités
             </Button>
             {analysisId != null && (
-              <Button
-                variant="secondary"
-                onClick={handleApplyCorrections}
-                disabled={applyLoading}
-                className="gap-2 shrink-0"
-              >
-                {applyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Appliquer les modifications
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={handleExportReportPdf}
+                  disabled={reportLoading}
+                  className="gap-2 shrink-0"
+                >
+                  {reportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                  Exporter le rapport PDF
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleApplyCorrections}
+                  disabled={applyLoading}
+                  className="gap-2 shrink-0"
+                >
+                  {applyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  Appliquer les modifications
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -515,7 +541,7 @@ export function Dashboard() {
                       <div className="min-w-0 flex-1">
                         <p className="font-medium truncate">{vuln.title}</p>
                         <p className="text-sm text-muted-foreground truncate">
-                          {vuln.file}:{vuln.line}
+                          {shortFilePath(vuln.file)}:{vuln.line}
                         </p>
                       </div>
                     </div>

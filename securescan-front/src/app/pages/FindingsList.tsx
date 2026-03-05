@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Navigate } from "react-router";
 import { getCurrentProjectId, getCurrentAnalysisId, setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
 import { getAnalysisResults } from "../api/analysis";
 import { getProjectFindings } from "../api/projects";
+import { applyCorrections } from "../api/apply";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -21,9 +22,9 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { SeverityBadge } from "../components/SeverityBadge";
-import { Shield, Search, ArrowLeft, FileCode, Wrench, ChevronRight, AlertTriangle } from "lucide-react";
+import { Shield, Search, ArrowLeft, Send, Loader2, AlertTriangle, ChevronRight } from "lucide-react";
+import { shortFilePath } from "../lib/filePath";
 import { owaspCategories, scanTools } from "../data/mockData";
 import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
 import type { SeverityLevel } from "../constants/severity";
@@ -56,7 +57,8 @@ export function FindingsList() {
   const [findings, setFindings] = useState<FindingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedVuln, setSelectedVuln] = useState<FindingItem | null>(null);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     if (projectId === null && analysisId === null) return;
@@ -125,9 +127,26 @@ export function FindingsList() {
     if (projectId === null && analysisId === null) navigate("/submit", { replace: true });
   }, [projectId, analysisId, navigate]);
 
-  useEffect(() => {
-    setSelectedVuln(null);
-  }, [location.pathname]);
+  const handleApplyCorrections = async () => {
+    if (analysisId == null) return;
+    setApplyMessage(null);
+    setApplyLoading(true);
+    try {
+      const result = await applyCorrections(analysisId);
+      if (result.pullRequestUrl) {
+        setApplyMessage({ type: "success", text: "PR créée. Ouverture dans un nouvel onglet." });
+        window.open(result.pullRequestUrl, "_blank");
+      } else if (result.zipDownloaded) {
+        setApplyMessage({ type: "success", text: "ZIP corrigé téléchargé." });
+      } else if (result.correctionsApplied != null) {
+        setApplyMessage({ type: "success", text: `${result.correctionsApplied} correction(s) appliquée(s).` });
+      }
+    } catch (err) {
+      setApplyMessage({ type: "error", text: getErrorMessage(err, GENERIC_ERROR_MESSAGE) });
+    } finally {
+      setApplyLoading(false);
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
@@ -151,21 +170,42 @@ export function FindingsList() {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Retour au tableau de bord
-          </Button>
-          <div className="flex items-center gap-3 flex-1">
-            <Shield className="w-8 h-8 text-[var(--primary)] shrink-0" />
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-semibold">Vulnérabilités</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">
-                {loading ? "Chargement…" : `${filteredFindings.length} vulnérabilité(s) détectée(s)`}
-              </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Retour au tableau de bord
+            </Button>
+            <div className="flex items-center gap-3 flex-1">
+              <Shield className="w-8 h-8 text-[var(--primary)] shrink-0" />
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-semibold">Vulnérabilités</h1>
+                <p className="text-muted-foreground text-sm sm:text-base">
+                  {loading ? "Chargement…" : `${filteredFindings.length} vulnérabilité(s) détectée(s)`}
+                </p>
+              </div>
             </div>
           </div>
+          {analysisId != null && (
+            <Button
+              variant="secondary"
+              onClick={handleApplyCorrections}
+              disabled={applyLoading}
+              className="gap-2 shrink-0"
+            >
+              {applyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Appliquer les modifs
+            </Button>
+          )}
         </div>
+
+        {applyMessage && (
+          <div
+            className={`mb-6 p-3 rounded-lg text-sm ${applyMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}
+          >
+            {applyMessage.text}
+          </div>
+        )}
 
         {loadError && (
           <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2">
@@ -254,7 +294,11 @@ export function FindingsList() {
                     <TableRow
                       key={vuln.id}
                       className="cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={() => setSelectedVuln(vuln)}
+                      onClick={() =>
+                        navigate(`/fix/${vuln.id}`, {
+                          state: { finding: vuln, projectId: projectId ?? null, analysisId: analysisId ?? null },
+                        })
+                      }
                     >
                       <TableCell>
                         <SeverityBadge severity={vuln.severity} />
@@ -263,7 +307,7 @@ export function FindingsList() {
                         {vuln.owaspCategory ? vuln.owaspCategory.replace(/^([A0-9]+).*/, "$1") : "—"}
                       </TableCell>
                       <TableCell className="font-mono text-xs sm:text-sm truncate max-w-[180px]" title={vuln.file}>
-                        {vuln.file || "—"}
+                        {shortFilePath(vuln.file) || "—"}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">{vuln.line || "—"}</TableCell>
                       <TableCell className="text-sm">{vuln.tool || "—"}</TableCell>
@@ -281,81 +325,6 @@ export function FindingsList() {
           </div>
         </Card>
       </div>
-
-      <Sheet open={!!selectedVuln} onOpenChange={(open) => !open && setSelectedVuln(null)}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 flex flex-col">
-          {selectedVuln && (
-            <>
-              <SheetHeader className="p-6 pb-4 border-b shrink-0">
-                <div className="flex items-start justify-between gap-4">
-                  <SheetTitle className="text-lg font-semibold pr-8">
-                    Détail de la vulnérabilité
-                  </SheetTitle>
-                  <SeverityBadge severity={selectedVuln.severity} />
-                </div>
-              </SheetHeader>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div>
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    {selectedVuln.title || "Vulnérabilité détectée"}
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
-                    <FileCode className="w-4 h-4 shrink-0" />
-                    <span>
-                      {selectedVuln.file || "—"}
-                      {selectedVuln.line != null && selectedVuln.line > 0 ? `:${selectedVuln.line}` : ""}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg border bg-muted/40 p-3">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">OWASP</p>
-                    <p className="text-sm font-medium">
-                      {selectedVuln.owaspCategory || "—"}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border bg-muted/40 p-3">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Outil</p>
-                    <p className="text-sm font-medium flex items-center gap-1">
-                      <Wrench className="w-3.5 h-3.5" />
-                      {selectedVuln.tool || "—"}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedVuln.description && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Description</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {selectedVuln.description}
-                    </p>
-                  </div>
-                )}
-
-                <div className="pt-2 flex flex-col sm:flex-row gap-2">
-                  <Button
-                    className="flex-1 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
-                    onClick={() => {
-                      setSelectedVuln(null);
-                      navigate(`/fix/${selectedVuln.id}`, { state: { finding: selectedVuln } });
-                    }}
-                  >
-                    Voir le correctif suggéré
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedVuln(null)}
-                  >
-                    Fermer
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

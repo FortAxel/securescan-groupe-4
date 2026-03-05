@@ -67,3 +67,21 @@ export async function getAnalysisOwaspBreakdown(
   );
   return data;
 }
+
+/**
+ * Télécharge le rapport d'analyse en PDF (GET /api/analysis/:analysisId/report).
+ * Déclenche le téléchargement du fichier dans le navigateur.
+ */
+export async function downloadAnalysisReport(analysisId: number): Promise<void> {
+  const { data } = await apiClient.get<Blob>(`/api/analysis/${analysisId}/report`, {
+    responseType: "blob",
+  });
+  const url = URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rapport-analyse-${analysisId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

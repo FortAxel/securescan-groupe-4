@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { SeverityBadge } from "../components/SeverityBadge";
-import { ArrowLeft, Check, X, FileCode, Wrench, Info, Loader2, Send } from "lucide-react";
+import { ArrowLeft, Check, X, FileCode, Wrench, Info, Loader2 } from "lucide-react";
 import { mockVulnerabilities } from "../data/mockData";
 import { getCurrentProjectId, getCurrentAnalysisId } from "../lib/flow";
 import type { SeverityLevel } from "../constants/severity";
 import { normalizeSeverity } from "../constants/severity";
-import { validateCorrection, rejectCorrection } from "../api/corrections";
-import { applyCorrections } from "../api/apply";
+import { validateCorrection, rejectCorrection, getCorrection } from "../api/corrections";
 import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
+import { shortFilePath } from "../lib/filePath";
 
 type FindingFromState = {
   id: string;
@@ -31,14 +31,30 @@ export function FixPreview() {
   const analysisId = getCurrentAnalysisId(location);
   const findingFromState = (location.state as { finding?: FindingFromState })?.finding;
   const [actionLoading, setActionLoading] = useState(false);
-  const [applyLoading, setApplyLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [correctionFromApi, setCorrectionFromApi] = useState<{ originalSnippet: string; fixedSnippet: string } | null>(null);
+  const [correctionLoading, setCorrectionLoading] = useState(false);
 
   const findingId = id ? Number(id) : null;
 
   useEffect(() => {
     if (projectId === null && analysisId === null) navigate("/submit", { replace: true });
   }, [projectId, analysisId, navigate]);
+
+  useEffect(() => {
+    if (findingId == null || isNaN(findingId)) return;
+    setCorrectionLoading(true);
+    setCorrectionFromApi(null);
+    getCorrection(findingId)
+      .then((data) => {
+        setCorrectionFromApi({
+          originalSnippet: data.originalSnippet ?? "",
+          fixedSnippet: data.fixedSnippet ?? "",
+        });
+      })
+      .catch(() => setCorrectionFromApi(null))
+      .finally(() => setCorrectionLoading(false));
+  }, [findingId]);
 
   const handleValidate = async () => {
     if (findingId == null || isNaN(findingId)) return;
@@ -68,29 +84,12 @@ export function FixPreview() {
     }
   };
 
-  const handleApply = async () => {
-    if (analysisId == null) return;
-    setMessage(null);
-    setApplyLoading(true);
-    try {
-      const result = await applyCorrections(analysisId);
-      if (result.pullRequestUrl) {
-        setMessage({ type: "success", text: `PR créée : ${result.pullRequestUrl}` });
-        window.open(result.pullRequestUrl, "_blank");
-      } else if (result.zipDownloaded) {
-        setMessage({ type: "success", text: "ZIP corrigé téléchargé." });
-      } else if (result.correctionsApplied != null) {
-        setMessage({ type: "success", text: `${result.correctionsApplied} correction(s) appliquée(s).` });
-      }
-    } catch (err) {
-      setMessage({ type: "error", text: getErrorMessage(err, GENERIC_ERROR_MESSAGE) });
-    } finally {
-      setApplyLoading(false);
-    }
-  };
-
   const mockVuln = mockVulnerabilities.find((v) => v.id === id);
-  const hasFullFix = !!mockVuln?.codeSnippet && !!mockVuln?.fixedCode;
+  const hasApiCorrection = !!correctionFromApi?.originalSnippet && !!correctionFromApi?.fixedSnippet;
+  const hasMockFix = !!mockVuln?.codeSnippet && !!mockVuln?.fixedCode;
+  const hasFullFix = hasApiCorrection || hasMockFix;
+  const codeSnippetFromApi = correctionFromApi?.originalSnippet ?? "";
+  const fixedCodeFromApi = correctionFromApi?.fixedSnippet ?? "";
   const vulnerability = findingFromState ?? mockVuln;
 
   if (projectId === null && analysisId === null) return <Navigate to="/submit" replace />;
@@ -114,9 +113,10 @@ export function FixPreview() {
   const owaspCategory = "owaspCategory" in vulnerability ? vulnerability.owaspCategory : (vulnerability as { owaspCategory?: string }).owaspCategory ?? "";
   const tool = "tool" in vulnerability ? vulnerability.tool : (vulnerability as { tool?: string }).tool ?? "";
   const description = "description" in vulnerability ? vulnerability.description : (vulnerability as { description?: string }).description ?? "";
-  const codeSnippet = "codeSnippet" in vulnerability ? (vulnerability as { codeSnippet?: string }).codeSnippet : "";
-  const fixedCode = "fixedCode" in vulnerability ? (vulnerability as { fixedCode?: string }).fixedCode : "";
+  const codeSnippet = codeSnippetFromApi || ("codeSnippet" in vulnerability ? (vulnerability as { codeSnippet?: string }).codeSnippet : "");
+  const fixedCode = fixedCodeFromApi || ("fixedCode" in vulnerability ? (vulnerability as { fixedCode?: string }).fixedCode : "");
   const fixExplanation = "fixExplanation" in vulnerability ? (vulnerability as { fixExplanation?: string }).fixExplanation : "";
+  const displayFile = shortFilePath(file);
 
   return (
     <div className="min-h-screen p-6">
@@ -155,18 +155,6 @@ export function FixPreview() {
               {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               Accepter le correctif
             </Button>
-            {analysisId != null && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleApply}
-                disabled={applyLoading}
-                className="gap-2"
-              >
-                {applyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Appliquer les modifications
-              </Button>
-            )}
           </div>
         </div>
 
@@ -184,7 +172,7 @@ export function FixPreview() {
               <FileCode className="w-5 h-5 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Fichier</p>
-                <p className="font-mono text-sm break-all">{file || "—"}</p>
+                <p className="font-mono text-sm break-all">{displayFile || "—"}</p>
               </div>
             </div>
             <div>
@@ -222,7 +210,12 @@ export function FixPreview() {
           </Card>
         )}
 
-        {hasFullFix && codeSnippet && fixedCode ? (
+        {correctionLoading ? (
+          <Card className="p-6 shadow-sm border rounded-xl bg-muted/20 flex items-center justify-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Chargement du correctif…</span>
+          </Card>
+        ) : hasFullFix && codeSnippet && fixedCode ? (
           <div className="grid md:grid-cols-2 gap-6">
             <Card className="shadow-sm overflow-hidden rounded-xl border-red-200 dark:border-red-900/50">
               <div className="bg-red-50 dark:bg-red-950/40 border-b px-4 py-2.5">
@@ -252,23 +245,6 @@ export function FixPreview() {
             </p>
           </Card>
         )}
-
-        <div className="flex flex-wrap justify-center gap-3 mt-8">
-          <Button variant="outline" size="lg" onClick={handleReject} disabled={actionLoading || findingId == null} className="gap-2">
-            <X className="w-5 h-5" />
-            Rejeter le correctif
-          </Button>
-          <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={handleValidate} disabled={actionLoading || findingId == null}>
-            <Check className="w-5 h-5" />
-            Accepter le correctif
-          </Button>
-          {analysisId != null && (
-            <Button variant="secondary" size="lg" onClick={handleApply} disabled={applyLoading} className="gap-2">
-              {applyLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-              Appliquer les modifications
-            </Button>
-          )}
-        </div>
       </div>
     </div>
   );
