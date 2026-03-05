@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import { type SeverityLevel, normalizeSeverity } from "../constants/severity";
+import { normalizeSeverity } from "../constants/severity";
 
 /**
  * Sync avec le back : GET /api/analysis/:analysisId/results.
