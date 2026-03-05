@@ -16,13 +16,16 @@ import { getProjectFindings, type ProjectFindingsResponse } from "../api/project
 import { getCurrentProjectId, getCurrentAnalysisId, setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
 import { ChartErrorBoundary } from "../components/ChartErrorBoundary";
 import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
+import type { SeverityLevel } from "../constants/severity";
+import { SEVERITY_LEVELS } from "../constants/severity";
 
-// Constantes pour le graphique OWASP (spec: couleurs par sévérité)
-const SEVERITY_COLORS = {
+// Couleurs par sévérité (alignées schema Prisma : CRITICAL, HIGH, MEDIUM, LOW, INFO)
+const SEVERITY_COLORS: Record<SeverityLevel, string> = {
   critical: "var(--severity-critical)",
   high: "var(--severity-high)",
   medium: "var(--severity-medium)",
   low: "var(--severity-low)",
+  info: "var(--severity-info)",
 };
 
 type SeverityCounts = {
@@ -93,7 +96,7 @@ function useFindingsData(projectId: number | undefined, analysisId: number | und
         setFindings(
           data.findings.map((f) => ({
             id: String(f.id),
-            severity: f.severity as "critical" | "high" | "medium" | "low",
+            severity: f.severity as SeverityLevel,
             owaspCategory: f.owasp ?? "",
             file: f.file ?? "",
             line: f.line ?? 0,
@@ -221,10 +224,7 @@ export function Dashboard() {
       high: categoryFindings.filter((f) => f.severity === "high").length,
       medium: categoryFindings.filter((f) => f.severity === "medium").length,
       low: categoryFindings.filter((f) => f.severity === "low").length,
-      total:
-        categoryFindings.filter((f) =>
-          ["critical", "high", "medium", "low"].includes(f.severity)
-        ).length,
+      total: categoryFindings.filter((f) => SEVERITY_LEVELS.includes(f.severity)).length,
     };
   });
 

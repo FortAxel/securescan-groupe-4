@@ -1,10 +1,11 @@
 import { apiClient } from "./client";
+import { type SeverityLevel, normalizeSeverity } from "../constants/severity";
 
 /**
- * Sync avec le back : GET /api/analysis/:analysisId/results et .../results/owasp
+ * Sync avec le back : GET /api/analysis/:analysisId/results.
+ * Sévérités alignées sur le schema Prisma (CRITICAL, HIGH, MEDIUM, LOW, INFO).
  */
-
-export type Severity = "critical" | "high" | "medium" | "low" | "info";
+export type { SeverityLevel as Severity } from "../constants/severity";
 
 export interface AnalysisFinding {
   id: number;
@@ -35,19 +36,13 @@ export interface OwaspBreakdownResponse {
   byOwasp: Record<string, { critical: number; high: number; medium: number; low: number; info: number; total: number }>;
 }
 
-function toSeverity(s: string): Severity {
-  const lower = (s || "").toLowerCase();
-  if (["critical", "high", "medium", "low", "info"].includes(lower)) return lower as Severity;
-  return "low";
-}
-
 function normalizeFinding(raw: AnalysisFinding): AnalysisFinding {
   return {
     id: Number(raw.id),
     file: raw.file ?? null,
     line: raw.line != null ? Number(raw.line) : null,
     description: raw.description ?? null,
-    severity: toSeverity(raw.severity),
+    severity: normalizeSeverity(raw.severity),
     owasp: raw.owasp ?? null,
     tool: typeof raw.tool === "string" ? raw.tool : String(raw.tool ?? ""),
     fixStatus: typeof raw.fixStatus === "string" ? raw.fixStatus : "PENDING",

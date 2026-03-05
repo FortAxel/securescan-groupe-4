@@ -49,6 +49,8 @@
   --severity-medium-bg: #fef9c3;
   --severity-low: #16a34a;
   --severity-low-bg: #dcfce7;
+  --severity-info: #64748b;
+  --severity-info-bg: #f1f5f9;
 }
 
 .dark {

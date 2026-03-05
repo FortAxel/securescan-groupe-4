@@ -1,6 +1,8 @@
+import type { SeverityLevel } from "../constants/severity";
+
 export interface Vulnerability {
   id: string;
-  severity: "critical" | "high" | "medium" | "low";
+  severity: SeverityLevel;
   owaspCategory: string;
   file: string;
   line: number;

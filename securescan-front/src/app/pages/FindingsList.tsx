@@ -26,10 +26,12 @@ import { SeverityBadge } from "../components/SeverityBadge";
 import { Shield, Search, ArrowLeft, FileCode, Wrench, ChevronRight, AlertTriangle } from "lucide-react";
 import { owaspCategories, scanTools } from "../data/mockData";
 import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
+import type { SeverityLevel } from "../constants/severity";
+import { normalizeSeverity } from "../constants/severity";
 
 type FindingItem = {
   id: string;
-  severity: "critical" | "high" | "medium" | "low" | "info";
+  severity: SeverityLevel;
   owaspCategory: string;
   file: string;
   line: number;
@@ -73,7 +75,7 @@ export function FindingsList() {
           setFindings(
             data.findings.map((f) => ({
               id: String(f.id),
-              severity: (f.severity === "info" ? "info" : f.severity) as FindingItem["severity"],
+              severity: normalizeSeverity(f.severity),
               owaspCategory: f.owasp ?? "",
               file: f.file ?? "",
               line: f.line ?? 0,
@@ -96,7 +98,7 @@ export function FindingsList() {
           setFindings(
             data.findings.map((f) => ({
               id: String(f.id),
-              severity: f.severity,
+              severity: normalizeSeverity(f.severity),
               owaspCategory: f.owaspCategory ?? "",
               file: f.filePath ?? "",
               line: f.lineStart ?? 0,

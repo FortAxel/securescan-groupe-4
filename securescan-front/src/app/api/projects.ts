@@ -47,16 +47,17 @@ export async function uploadProjectZip(file: File): Promise<StartScanResponse> {
 }
 
 /**
- * Sync avec le back : GET /api/projects/:id/findings (à exposer côté back).
- * Si le back renvoie severity/tool en majuscules (CRITICAL, SEMGREP), on normalise.
+ * Sync avec le back : GET /api/projects/:id/findings.
+ * Sévérités alignées sur le schema Prisma (CRITICAL, HIGH, MEDIUM, LOW, INFO).
  */
+import { type SeverityLevel, normalizeSeverity } from "../constants/severity";
 
-export type Severity = "critical" | "high" | "medium" | "low";
+export type { SeverityLevel as Severity } from "../constants/severity";
 
 export interface ApiFinding {
   id: number;
   tool: string;
-  severity: Severity;
+  severity: SeverityLevel;
   owaspCategory?: string;
   title: string;
   description?: string;
@@ -72,21 +73,15 @@ export interface ProjectFindingsResponse {
   high: number;
   medium: number;
   low: number;
-  totalVulnerabilities: number;
+  totalVulnerabilities?: number;
   findings: ApiFinding[];
-}
-
-function toSeverity(s: string): Severity {
-  const lower = (s || "").toLowerCase();
-  if (["critical", "high", "medium", "low"].includes(lower)) return lower as Severity;
-  return "low";
 }
 
 function normalizeFinding(raw: Record<string, unknown>): ApiFinding {
   return {
     id: Number(raw.id),
     tool: typeof raw.tool === "string" ? raw.tool : String(raw.tool ?? ""),
-    severity: toSeverity(String(raw.severity ?? "low")),
+    severity: normalizeSeverity(raw.severity as string),
     owaspCategory: raw.owaspCategory != null ? String(raw.owaspCategory) : undefined,
     title: String(raw.title ?? ""),
     description: raw.description != null ? String(raw.description) : undefined,

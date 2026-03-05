@@ -6,10 +6,12 @@ import { SeverityBadge } from "../components/SeverityBadge";
 import { ArrowLeft, Check, X, FileCode, Wrench, Info } from "lucide-react";
 import { mockVulnerabilities } from "../data/mockData";
 import { getCurrentProjectId, getCurrentAnalysisId } from "../lib/flow";
+import type { SeverityLevel } from "../constants/severity";
+import { normalizeSeverity } from "../constants/severity";
 
 type FindingFromState = {
   id: string;
-  severity: "critical" | "high" | "medium" | "low" | "info";
+  severity: SeverityLevel;
   owaspCategory: string;
   file: string;
   line: number;
@@ -48,7 +50,7 @@ export function FixPreview() {
     );
   }
 
-  const severity = "severity" in vulnerability ? vulnerability.severity : "medium";
+  const severity: SeverityLevel = "severity" in vulnerability ? normalizeSeverity(vulnerability.severity) : "medium";
   const title = "title" in vulnerability ? vulnerability.title : (vulnerability as { title?: string }).title ?? "";
   const file = "file" in vulnerability ? vulnerability.file : (vulnerability as { file?: string }).file ?? "";
   const line = "line" in vulnerability ? vulnerability.line : (vulnerability as { line?: number }).line ?? 0;
@@ -71,7 +73,7 @@ export function FixPreview() {
             <div>
               <div className="flex items-center gap-3 mb-1 flex-wrap">
                 <h1 className="text-2xl font-semibold">Correctif suggéré</h1>
-                <SeverityBadge severity={severity as "critical" | "high" | "medium" | "low" | "info"} />
+                <SeverityBadge severity={severity} />
               </div>
               <p className="text-muted-foreground text-sm">{title || "Détail de la vulnérabilité"}</p>
             </div>
