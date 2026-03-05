@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapport SecureScan — MyApp Backend</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #2c3e50; }
+    .page { max-width: 1100px; margin: 0 auto; background: #fff; }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: #fff; padding: 40px 48px; display: flex;
+      justify-content: space-between; align-items: flex-start;
+    }
+    .header-brand { font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+                    color: #a0aec0; margin-bottom: 8px; }
+    .header-title { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+    .header-sub   { font-size: 14px; color: #a0aec0; }
+    .score-box {
+      text-align: center; background: rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 20px 28px;
+    }
+    .score-grade {
+      font-size: 52px; font-weight: 800; line-height: 1;
+      color: #f39c12;
+    }
+    .score-value { font-size: 13px; color: #a0aec0; margin-top: 4px; }
+
+    /* ── Sections ── */
+    .section { padding: 36px 48px; border-bottom: 1px solid #e9ecef; }
+    .section:last-of-type { border-bottom: none; }
+    .section-title {
+      font-size: 18px; font-weight: 700; color: #1a1a2e;
+      margin-bottom: 20px; padding-bottom: 10px;
+      border-bottom: 3px solid #0f3460; display: inline-block;
+    }
+
+    /* ── Meta grid ── */
+    .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .meta-card {
+      background: #f8f9fa; border-radius: 8px; padding: 16px 20px;
+      border-left: 4px solid #0f3460;
+    }
+    .meta-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6c757d; }
+    .meta-value { font-size: 16px; font-weight: 600; margin-top: 4px; color: #1a1a2e; }
+
+    /* ── Summary cards ── */
+    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .summary-card { border-radius: 8px; padding: 16px; text-align: center; }
+    .summary-card .count { font-size: 32px; font-weight: 800; }
+    .summary-card .label { font-size: 11px; text-transform: uppercase; margin-top: 2px; opacity: 0.85; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead tr { background: #1a1a2e; color: #fff; }
+    thead th { padding: 12px 14px; text-align: left; font-weight: 600;
+               font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── Executive summary ── */
+    .exec-box {
+      background: #f8f9fa; border-left: 4px solid #0f3460;
+      border-radius: 0 8px 8px 0; padding: 20px 24px; font-size: 15px; line-height: 1.7;
+    }
+    .exec-box strong { color: #c0392b; }
+
+    /* ── Footer ── */
+    .footer {
+      background: #1a1a2e; color: #a0aec0;
+      padding: 24px 48px; display: flex;
+      justify-content: space-between; align-items: center; font-size: 13px;
+    }
+    .footer-brand { color: #fff; font-weight: 700; font-size: 15px; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══ HEADER ══ -->
+  <div class="header">
+    <div>
+      <div class="header-brand">SecureScan — Security Report</div>
+      <div class="header-title">MyApp Backend</div>
+      <div class="header-sub">Rapport généré le 05 mars 2026</div>
+    </div>
+    <div class="score-box">
+      <div class="score-grade">C</div>
+      <div class="score-value">Score 62 / 100</div>
+    </div>
+  </div>
+
+  <!-- ══ METADATA ══ -->
+  <div class="section">
+    <div class="section-title">Informations générales</div>
+    <div class="meta-grid">
+      <div class="meta-card">
+        <div class="meta-label">Projet</div>
+        <div class="meta-value">MyApp Backend</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-label">Analyse #</div>
+        <div class="meta-value">6</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-label">Statut</div>
+        <div class="meta-value">DONE</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-label">Démarrée le</div>
+        <div class="meta-value">05/03/2026</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-label">Terminée le</div>
+        <div class="meta-value">05/03/2026</div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-label">Corrections validées</div>
+        <div class="meta-value">5 / 5</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ EXECUTIVE SUMMARY ══ -->
+  <div class="section">
+    <div class="section-title">Résumé exécutif</div>
+    <div class="exec-box">
+      L'analyse du projet <strong>MyApp Backend</strong> a révélé
+      <strong>8 findings</strong> au total,
+      dont <strong>2 critiques</strong>
+      et <strong>2 hautes</strong> sévérité.
+      Le score global de sécurité est de <strong>62/100</strong>
+      (grade <strong>C</strong>).
+      <br/><br/>5 corrections ont été validées et appliquées.
+    </div>
+
+    <!-- Severity cards -->
+    <div class="summary-grid" style="margin-top:24px;">
+      <div class="summary-card" style="background:#7c0000;color:#fff;">
+        <div class="count">2</div>
+        <div class="label">Critical</div>
+      </div>
+      <div class="summary-card" style="background:#c0392b;color:#fff;">
+        <div class="count">2</div>
+        <div class="label">High</div>
+      </div>
+      <div class="summary-card" style="background:#e67e22;color:#fff;">
+        <div class="count">2</div>
+        <div class="label">Medium</div>
+      </div>
+      <div class="summary-card" style="background:#f1c40f;color:#000;">
+        <div class="count">1</div>
+        <div class="label">Low</div>
+      </div>
+      <div class="summary-card" style="background:#2980b9;color:#fff;">
+        <div class="count">1</div>
+        <div class="label">Info</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ OWASP BREAKDOWN ══ -->
+  <div class="section">
+    <div class="section-title">Répartition OWASP</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Catégorie OWASP</th>
+          <th>Nombre de findings</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+      <tr style="background:#ffffff;">
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;font-weight:600;">A02</td>
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;">1</td>
+      </tr>
+      <tr style="background:#f8f9fa;">
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;font-weight:600;">A03</td>
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;">2</td>
+      </tr>
+      <tr style="background:#ffffff;">
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;font-weight:600;">A04</td>
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;">1</td>
+      </tr>
+      <tr style="background:#f8f9fa;">
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;font-weight:600;">A05</td>
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;">1</td>
+      </tr>
+      <tr style="background:#ffffff;">
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;font-weight:600;">A06</td>
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;">1</td>
+      </tr>
+      <tr style="background:#f8f9fa;">
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;font-weight:600;">A07</td>
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;">1</td>
+      </tr>
+      <tr style="background:#ffffff;">
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;font-weight:600;">A09</td>
+        <td style="padding:8px 14px;border-bottom:1px solid #e9ecef;">1</td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ FINDINGS TABLE ══ -->
+  <div class="section">
+    <div class="section-title">Détail des findings (8)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Sévérité</th>
+          <th>OWASP</th>
+          <th>Outil</th>
+          <th>Titre</th>
+          <th>Fichier / Ligne</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+    <tr style="background:#ffffff;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">6</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;"><span style="background:#7c0000;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">critical</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">A03</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SEMGREP</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SQL Injection detected</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">src/controllers/user.controller.js:42</td>
+    </tr>
+    <tr style="background:#f8f9fa;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">8</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;"><span style="background:#7c0000;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">critical</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">A04</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">TRUFFLEHOG</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">Hardcoded API key</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">src/config/api.js:3</td>
+    </tr>
+    <tr style="background:#ffffff;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">7</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;"><span style="background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">high</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">A03</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SEMGREP</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">XSS via innerHTML</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">src/views/profile.js:17</td>
+    </tr>
+    <tr style="background:#f8f9fa;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">9</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;"><span style="background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">high</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">A06</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">NPM_AUDIT</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">Vulnerable dependency: lodash</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">—</td>
+    </tr>
+    <tr style="background:#ffffff;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">10</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;"><span style="background:#e67e22;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">medium</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">A07</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SEMGREP</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">JWT without expiration</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">src/services/auth.service.js:28</td>
+    </tr>
+    <tr style="background:#f8f9fa;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">11</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;"><span style="background:#e67e22;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">medium</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">A05</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SEMGREP</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">CORS wildcard</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">src/app.js:12</td>
+    </tr>
+    <tr style="background:#ffffff;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">12</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;"><span style="background:#f1c40f;color:#000;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">low</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">A02</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SEMGREP</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">MD5 used for hashing</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">src/utils/hash.js:8</td>
+    </tr>
+    <tr style="background:#f8f9fa;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">13</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;"><span style="background:#2980b9;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;">info</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">A09</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SEMGREP</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">Missing error logging</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-family:monospace;font-size:12px;color:#555;">src/middlewares/error.middleware.js:5</td>
+    </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ CORRECTIONS ══ -->
+  <div class="section">
+    <div class="section-title">Corrections appliquées (5)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Finding #</th>
+          <th>Type</th>
+          <th>Code original</th>
+          <th>Code corrigé</th>
+          <th>Validée le</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+    <tr style="background:#ffffff;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">7</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">XSS</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#c0392b;">el.innerHTML = userInput</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#27ae60;">el.textContent = userInput</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-size:12px;color:#555;">05/03/2026</td>
+    </tr>
+    <tr style="background:#f8f9fa;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">6</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SQL INJECTION</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#c0392b;">query('SELECT * FROM users WHERE id = ' + userId)</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#27ae60;">query('SELECT * FROM users WHERE id = ' + userId)</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-size:12px;color:#555;">05/03/2026</td>
+    </tr>
+    <tr style="background:#ffffff;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">8</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">SECRET</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#c0392b;">const apiKey = 'sk-abc123xyz456abc123xyz456'</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#27ae60;">const apiKey = process.env.SECRET_KEY</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-size:12px;color:#555;">05/03/2026</td>
+    </tr>
+    <tr style="background:#f8f9fa;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">9</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">DEPENDENCY</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#c0392b;">&quot;lodash&quot;: &quot;4.17.4&quot;</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#27ae60;">&quot;lodash&quot;: &quot;4.17.21&quot;
+# Puis : npm install</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-size:12px;color:#555;">05/03/2026</td>
+    </tr>
+    <tr style="background:#ffffff;">
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">10</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">PLAINTEXT PASSWORD</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#c0392b;">jwt.sign({ userId }, process.env.JWT_SECRET)</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;">
+        <code style="background:#f1f3f5;padding:2px 6px;border-radius:3px;font-size:12px;color:#27ae60;">jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' })</code>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e9ecef;font-size:12px;color:#555;">05/03/2026</td>
+    </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <div class="footer">
+    <div>
+      <div class="footer-brand">SecureScan by CyberSafe</div>
+      <div>Rapport confidentiel — usage interne uniquement</div>
+    </div>
+    <div style="text-align:right;">
+      <div>Généré le 05 mars 2026</div>
+      <div>Analyse #6 — Projet MyApp Backend</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

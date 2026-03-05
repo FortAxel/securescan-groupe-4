@@ -1,5 +1,5 @@
 import express from 'express';
-import { getResults, getOwaspBreakdown } from '../controllers/analysis.controller.js';
+import { getResults, getOwaspBreakdown, exportReport } from '../controllers/analysis.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { applyCorrectionsHandler } from '../controllers/apply.controller.js';
 
@@ -29,5 +29,12 @@ router.get('/:analysisId/results/owasp', authMiddleware, getOwaspBreakdown);
  * - ZIP project → streams corrected ZIP as attachment
  */
 router.post('/:analysisId/apply', authMiddleware, applyCorrectionsHandler);
+
+/**
+ * @route   GET /api/analysis/:analysisId/report
+ * @desc    Generate and download an HTML security report for a given analysis
+ * @access  Private
+ */
+router.get('/:analysisId/report', authMiddleware, exportReport);
 
 export default router;
