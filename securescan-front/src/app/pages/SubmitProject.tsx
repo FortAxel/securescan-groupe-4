@@ -1,16 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, Navigate, useLocation } from "react-router";
+import { useNavigate, useLocation, Navigate } from "react-router";
 import { Button } from "../components/ui/button";
 import { isLoggedIn } from "../lib/auth";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Shield, Upload, GitBranch, AlertCircle, Loader2 } from "lucide-react";
-import { getApiBaseUrl } from "../api/client";
 import { uploadProjectZip, startProjectScan } from "../api/projects";
-import { redirectToGitHubOAuth, setPendingScan } from "../lib/githubAuth";
-import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "../lib/errors";
-import { setCurrentProjectId, setCurrentAnalysisId } from "../lib/flow";
+import { getAndClearPendingScan, setPendingScan } from "../lib/githubAuth";
 
 const GIT_URL_REGEX = /^(https?:\/\/[^\s]+|git@[^\s]+\.git)$/i;
 
@@ -23,7 +20,6 @@ export function SubmitProject() {
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [scanning, setScanning] = useState(false);
 
   if (!isLoggedIn()) {
@@ -32,7 +28,33 @@ export function SubmitProject() {
 
   const hasUrl = gitUrl.trim().length > 0;
   const hasZip = zipFile !== null;
-  const canSubmit = hasUrl || hasZip;
+  const canSubmit = (hasUrl || hasZip) && !scanning;
+
+  // ── Reprendre le scan après retour OAuth GitHub ──────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("github") !== "connected") return;
+
+    const pending = getAndClearPendingScan();
+    if (!pending) return;
+
+    window.history.replaceState({}, "", "/submit");
+
+    setScanning(true);
+    setError(null);
+    startProjectScan({ url: pending.gitUrl, name: pending.name })
+      .then((data) => {
+        navigate("/dashboard", {
+          state: { projectId: data.projectId, analysisId: data.analysisId },
+          replace: true,
+        });
+      })
+      .catch((err: unknown) => {
+        setScanning(false);
+        const res = (err as { response?: { data?: { error?: string } } })?.response;
+        setError(res?.data?.error || (err as Error)?.message || "Erreur lors du scan.");
+      });
+  }, []);
 
   const validateAndGetError = (): string | null => {
     if (hasZip) return null;
@@ -40,9 +62,6 @@ export function SubmitProject() {
     const trimmed = gitUrl.trim();
     if (!GIT_URL_REGEX.test(trimmed)) {
       return "URL invalide. Utilisez une URL HTTPS ou SSH (ex: https://github.com/user/repo).";
-    }
-    if (trimmed.includes("private") || trimmed.includes("privé")) {
-      return "Dépôt privé ou inaccessible. Utilisez un dépôt public ou vérifiez vos accès.";
     }
     return null;
   };
@@ -52,8 +71,6 @@ export function SubmitProject() {
     setScanning(true);
     try {
       const data = await startProjectScan({ url, name });
-      setCurrentProjectId(data.projectId);
-      setCurrentAnalysisId(data.analysisId);
       setScanning(false);
       navigate("/dashboard", {
         state: { projectId: data.projectId, analysisId: data.analysisId },
@@ -64,10 +81,8 @@ export function SubmitProject() {
       const res = (err as { response?: { status?: number; data?: { error?: string; redirectTo?: string } } })?.response;
       if (res?.status === 401 && res.data?.error === "GitHub account not connected") {
         setPendingScan(url, name);
-        redirectToGitHubOAuth(getApiBaseUrl(), res.data?.redirectTo ?? "/api/githubAuth");
         return;
       }
-      setError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
     }
   };
 
@@ -88,73 +103,65 @@ export function SubmitProject() {
       setError(submitError);
       return;
     }
+
+    // ── ZIP ────────────────────────────────────────────────────────────────
     if (hasZip && zipFile) {
-      setUploading(true);
+      setScanning(true);
       try {
         const data = await uploadProjectZip(zipFile);
-        setUploading(false);
         navigate("/dashboard", {
           state: { projectId: data.projectId, analysisId: data.analysisId },
           replace: true,
         });
       } catch (err: unknown) {
-        setUploading(false);
-        const res = (err as { response?: { status?: number; data?: { error?: string; redirectTo?: string } } })?.response;
-        if (res?.status === 401 && res.data?.redirectTo && res.data?.error === "GitHub account not connected") {
-          redirectToGitHubOAuth(getApiBaseUrl(), res.data.redirectTo);
-          return;
-        }
-        setError(getErrorMessage(err, GENERIC_ERROR_MESSAGE));
+        setScanning(false);
+        const res = (err as { response?: { data?: { error?: string } } })?.response;
+        setError(res?.data?.error || (err as Error)?.message || "Erreur lors de l'upload.");
       }
       return;
     }
+
+    // ── GIT ────────────────────────────────────────────────────────────────
     const url = gitUrl.trim();
     const name = projectName.trim() || undefined;
-    runScan(url, name);
+
+    setScanning(true);
+    try {
+      const data = await startProjectScan({ url, name });
+      navigate("/dashboard", {
+        state: { projectId: data.projectId, analysisId: data.analysisId },
+        replace: true,
+      });
+    } catch (err: unknown) {
+      setScanning(false);
+      const res = (err as { response?: { status?: number; data?: { error?: string } } })?.response;
+
+      if (res?.status === 401) {
+        setPendingScan(url, name);
+        return;
+      }
+
+      setError(res?.data?.error || (err as Error)?.message || "Erreur lors du scan.");
+    }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
+  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    setError(null);
-    const files = e.dataTransfer.files;
-    if (files.length === 0) return;
-    const file = files[0];
-    if (!file.name.toLowerCase().endsWith(".zip")) {
-      setError("Veuillez déposer un fichier ZIP.");
-      return;
-    }
-    setZipFile(file);
-    setGitUrl("");
+    e.preventDefault(); e.stopPropagation(); setIsDragging(false); setError(null);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".zip")) { setError("Veuillez déposer un fichier ZIP."); return; }
+    setZipFile(file); setGitUrl("");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      if (!file.name.toLowerCase().endsWith(".zip")) {
-        setError("Veuillez sélectionner un fichier ZIP.");
-        return;
-      }
-      setZipFile(file);
-      setGitUrl("");
-    } else {
-      setZipFile(null);
-    }
+    const file = e.target.files?.[0];
+    if (!file) { setZipFile(null); return; }
+    if (!file.name.toLowerCase().endsWith(".zip")) { setError("Veuillez sélectionner un fichier ZIP."); return; }
+    setZipFile(file); setGitUrl("");
     e.target.value = "";
   };
 
@@ -164,10 +171,7 @@ export function SubmitProject() {
     setError(null);
   };
 
-  const clearZip = () => {
-    setZipFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  const clearZip = () => { setZipFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -184,15 +188,22 @@ export function SubmitProject() {
 
         <Card className="p-8 shadow-lg">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div key="submit-error" className={error ? "" : "hidden"} aria-hidden={!error}>
+            {error && (
               <Alert variant="destructive" className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 <div>
                   <AlertTitle>Erreur</AlertTitle>
-                  <AlertDescription>{error ?? ""}</AlertDescription>
+                  <AlertDescription>{error}</AlertDescription>
                 </div>
               </Alert>
-            </div>
+            )}
+
+            {scanning && (
+              <div className="flex items-center justify-center gap-3 p-4 bg-blue-50 rounded-lg text-blue-700">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm font-medium">Analyse en cours, veuillez patienter…</span>
+              </div>
+            )}
 
             <div>
               <label className="block mb-2 text-sm font-medium">Nom du projet (optionnel)</label>
@@ -202,9 +213,10 @@ export function SubmitProject() {
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 className="h-11"
-                disabled={!!zipFile}
+                disabled={!!zipFile || scanning}
               />
             </div>
+
             <div>
               <label className="block mb-2 text-sm font-medium">URL du dépôt Git</label>
               <div className="relative">
@@ -215,7 +227,7 @@ export function SubmitProject() {
                   value={gitUrl}
                   onChange={handleUrlChange}
                   className="pl-10 h-11"
-                  disabled={!!zipFile}
+                  disabled={!!zipFile || scanning}
                 />
               </div>
             </div>
@@ -230,64 +242,48 @@ export function SubmitProject() {
             </div>
 
             <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".zip"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              <div key="zip-preview" className={zipFile ? "" : "hidden"} aria-hidden={!zipFile}>
+              <input ref={fileInputRef} type="file" accept=".zip" className="hidden" onChange={handleFileChange} />
+              {zipFile ? (
                 <div className="border-2 border-green-200 bg-green-50/50 rounded-lg p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Upload className="w-6 h-6 text-green-600 shrink-0" />
                     <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">{zipFile?.name ?? ""}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {zipFile ? `${(zipFile.size / 1024).toFixed(1)} Ko` : ""}
-                      </p>
+                      <p className="font-medium text-foreground truncate">{zipFile.name}</p>
+                      <p className="text-sm text-muted-foreground">{(zipFile.size / 1024).toFixed(1)} Ko</p>
                     </div>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" onClick={clearZip}>
-                    Retirer
-                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={clearZip} disabled={scanning}>Retirer</Button>
                 </div>
-              </div>
-              <div
-                key="zip-dropzone"
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={zipFile ? "hidden" : `border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                  isDragging
-                    ? "border-[var(--primary)] bg-[var(--primary)]/5"
-                    : "border-border hover:border-[var(--primary)]/50"
-                }`}
-                aria-hidden={!!zipFile}
-              >
-                <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm font-medium mb-1">Glissez-déposez votre fichier ZIP</p>
-                <p className="text-xs text-muted-foreground">ou cliquez pour parcourir</p>
-              </div>
+              ) : (
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => !scanning && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${scanning ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${
+                    isDragging ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-border hover:border-[var(--primary)]/50"
+                  }`}
+                >
+                  <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-sm font-medium mb-1">Glissez-déposez votre fichier ZIP</p>
+                  <p className="text-xs text-muted-foreground">ou cliquez pour parcourir</p>
+                </div>
+              )}
             </div>
 
-            {(scanning || uploading) && (
-              <div className="p-4 rounded-lg bg-[var(--primary)]/10 border border-[var(--primary)]/20 flex items-center gap-3 text-sm text-foreground">
-                <Loader2 className="w-5 h-5 animate-spin shrink-0 text-[var(--primary)]" />
-                <span>
-                  {uploading
-                    ? "Envoi du fichier en cours…"
-                    : "L'analyse est en cours, patientez quelques instants. Vous serez redirigé vers le tableau de bord à la fin."}
-                </span>
-              </div>
-            )}
             <Button
               type="submit"
-              className="w-full h-11 bg-[var(--primary)] hover:bg-[var(--primary)]/90 disabled:opacity-60 disabled:pointer-events-none"
-              disabled={!canSubmit || uploading || scanning}
+              className="w-full h-11 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+              disabled={!canSubmit}
             >
-              {uploading ? "Envoi en cours…" : scanning ? "Analyse en cours…" : "Lancer l'analyse"}
+              {scanning ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyse en cours…
+                </span>
+              ) : (
+                "Lancer l'analyse"
+              )}
             </Button>
           </form>
         </Card>

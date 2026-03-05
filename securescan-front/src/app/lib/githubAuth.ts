@@ -29,5 +29,9 @@ export function getAndClearPendingScan(): PendingScan | null {
 
 export function redirectToGitHubOAuth(apiBaseUrl: string, redirectPath: string): void {
   const url = redirectPath.startsWith("http") ? redirectPath : `${apiBaseUrl.replace(/\/$/, "")}${redirectPath.startsWith("/") ? redirectPath : `/${redirectPath}`}`;
-  window.location.href = url;
+  
+  const token = localStorage.getItem("token"); 
+  const finalUrl = token ? `${url}?token=${token}` : url;
+  
+  window.location.href = finalUrl;
 }

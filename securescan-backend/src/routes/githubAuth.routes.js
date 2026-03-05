@@ -14,16 +14,5 @@ router.get('/', redirectToGithub);
  */
 router.get('/callback', githubCallback);
 
-// TEST ONLY — Remove before production
-
-import { saveGithubOAuthData } from '../services/db/databaseManager.js';
-
-router.post('/inject', authMiddleware, async (req, res) => {
-  await saveGithubOAuthData(req.userId, { 
-    githubId: `test_${req.userId}`,  // unique par user
-    accessToken: req.body.accessToken 
-  });
-  res.json({ ok: true });
-});
 
 export default router;

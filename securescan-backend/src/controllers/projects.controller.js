@@ -76,7 +76,7 @@ export async function createFromGit(req, res) {
     if (!githubAuth?.githubAccessToken) {
       return res.status(401).json({
         error: 'GitHub account not connected',
-        redirectTo: '/githubAuth/',
+        redirectTo: `${process.env.BACKEND_URL}/api/githubAuth/`,
       });
     }
 

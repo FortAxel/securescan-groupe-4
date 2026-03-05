@@ -188,23 +188,12 @@ export function ReportHistory() {
               </div>
               <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
                 <span className="text-lg text-blue-700">
-                  {avgScore >= 80 ? "A" : avgScore >= 70 ? "B" : avgScore >= 60 ? "C" : "D"}
+                  {avgScore >= 90 ? "A" : avgScore >= 75 ? "B" : avgScore >= 60 ? "C" : avgScore >= 30 ? "D" : "F"}
                 </span>
               </div>
             </div>
           </Card>
 
-          <Card className="p-4 shadow-md">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Vulnérabilités totales
-                </p>
-                <p className="text-2xl">{totalVulnerabilities}</p>
-              </div>
-              <TrendingDown className="w-8 h-8 text-orange-500" />
-            </div>
-          </Card>
         </div>
 
         <Card className="shadow-md">

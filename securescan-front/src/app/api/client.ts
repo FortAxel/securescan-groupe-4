@@ -13,6 +13,7 @@ export const apiClient = axios.create({
   baseURL,
   headers: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
 });
 
@@ -23,3 +24,19 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      error.response?.status === 401 &&
+      error.response?.data?.redirectTo &&
+      error.response?.data?.error === 'GitHub account not connected'
+    ) {
+      const token = getToken();
+      const redirectTo = error.response.data.redirectTo;
+      window.location.href = token ? `${redirectTo}?token=${token}` : redirectTo;
+    }
+    return Promise.reject(error);
+  }
+);
