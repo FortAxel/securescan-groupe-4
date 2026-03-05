@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Checkbox } from "../components/ui/checkbox";
 import { Shield, Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { setLoggedIn } from "../lib/auth";
 import { login as apiLogin } from "../api/auth";
@@ -13,7 +12,6 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -125,30 +123,6 @@ export function Login() {
                     )}
                   </button>
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) =>
-                      setRememberMe(checked as boolean)
-                    }
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="text-sm text-muted-foreground cursor-pointer"
-                  >
-                    Se souvenir de moi
-                  </label>
-                </div>
-                <a
-                  href="#"
-                  className="text-sm text-[var(--primary)] hover:underline"
-                >
-                  Mot de passe oublié ?
-                </a>
               </div>
 
               <Button

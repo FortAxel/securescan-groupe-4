@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Navigate } from "react-router";
 import { Button } from "../components/ui/button";
+import { isLoggedIn } from "../lib/auth";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Shield, Upload, GitBranch, AlertCircle, Github } from "lucide-react";
+import { Shield, Upload, GitBranch, AlertCircle } from "lucide-react";
 import { getApiBaseUrl } from "../api/client";
 import { uploadProjectZip } from "../api/projects";
 import { redirectToGitHubOAuth } from "../lib/githubAuth";
@@ -14,13 +15,16 @@ const GIT_URL_REGEX = /^(https?:\/\/[^\s]+|git@[^\s]+\.git)$/i;
 export function SubmitProject() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [gitUrl, setGitUrl] = useState("");
   const [projectName, setProjectName] = useState("");
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
 
   const hasUrl = gitUrl.trim().length > 0;
   const hasZip = zipFile !== null;
@@ -135,19 +139,9 @@ export function SubmitProject() {
             <Shield className="w-12 h-12 text-[var(--primary)]" />
           </div>
           <h1 className="text-3xl mb-2">Nouvelle analyse</h1>
-          <p className="text-muted-foreground mb-4">
+          <p className="text-muted-foreground">
             Indiquez la source de votre projet pour lancer le scan de sécurité
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => redirectToGitHubOAuth(getApiBaseUrl(), "/auth/github")}
-          >
-            <Github className="w-4 h-4" />
-            Connecter GitHub (pour dépôts privés et clone)
-          </Button>
         </div>
 
         <Card className="p-8 shadow-lg">
@@ -252,7 +246,7 @@ export function SubmitProject() {
 
         <div className="mt-8 p-4 bg-blue-50 rounded-lg">
           <p className="text-sm text-center text-muted-foreground">
-            Node.js, Python, Java, Go et plus encore
+            PHP, Node, Python
           </p>
         </div>
       </div>

@@ -81,9 +81,9 @@ export function ScanProgress() {
       .catch((err: unknown) => {
         if (cancelled || !mountedRef.current) return;
         const res = (err as { response?: { status?: number; data?: { error?: string; redirectTo?: string } } })?.response;
-        if (res?.status === 401 && res.data?.redirectTo && res.data?.error === "GitHub account not connected") {
+        if (res?.status === 401 && res.data?.error === "GitHub account not connected") {
           setPendingScan(state.gitUrl, state.name);
-          redirectToGitHubOAuth(getApiBaseUrl(), res.data.redirectTo);
+          redirectToGitHubOAuth(getApiBaseUrl(), "/api/githubAuth");
           return;
         }
         const msg =

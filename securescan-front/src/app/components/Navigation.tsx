@@ -37,7 +37,7 @@ export function Navigation() {
                 Accueil
               </Link>
             </span>
-            <span key="nav-submit" className="inline-flex">
+            <span key="nav-submit" className={loggedIn ? "inline-flex" : "hidden"}>
               <button
                 type="button"
                 onClick={handleSubmitOrNew}

@@ -13,11 +13,8 @@ import {
   FileSearch,
   LayoutDashboard,
   Sparkles,
-  Github,
 } from "lucide-react";
 import { isLoggedIn, logout, getStoredUser } from "../lib/auth";
-import { getApiBaseUrl } from "../api/client";
-import { redirectToGitHubOAuth } from "../lib/githubAuth";
 import { getCurrentUser, type CurrentUser } from "../api/auth";
 import { hasCurrentProject } from "../lib/flow";
 
@@ -174,21 +171,6 @@ export function Profile() {
                 <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
               </Card>
             </Link>
-
-            <Card
-              key="github"
-              className="p-4 sm:p-5 flex items-center gap-4 hover:border-[var(--primary)]/40 hover:bg-[var(--primary)]/5 transition-all cursor-pointer h-full"
-              onClick={() => redirectToGitHubOAuth(getApiBaseUrl(), "/auth/github")}
-            >
-              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                <Github className="w-6 h-6 text-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-foreground">Connecter GitHub</p>
-                <p className="text-sm text-muted-foreground">Lier pour cloner des dépôts privés</p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
-            </Card>
 
             <Link to="/submit" key="submit">
               <Card className="p-4 sm:p-5 flex items-center gap-4 hover:border-[var(--primary)]/40 hover:bg-[var(--primary)]/5 transition-all group cursor-pointer h-full">
