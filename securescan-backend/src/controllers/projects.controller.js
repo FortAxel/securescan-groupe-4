@@ -151,7 +151,7 @@ export async function createFromZip(req, res) {
     const language = detectLanguage(projectPath);
 
     const project = await createProject(req.userId, {
-      name: req.body.name,
+      name: req.body.name || `ZIP-upload-${Date.now()}`,
       sourceType: 'ZIP',
       localPath: projectPath,
       language,
@@ -180,6 +180,7 @@ export async function createFromZip(req, res) {
     });
 
   } catch (err) {
+    console.log(err.message);
     if (analysis?.id) {
       await updateAnalysis(analysis.id, { status: 'ERROR', errorMessage: err.message }).catch(() => {});
     }
