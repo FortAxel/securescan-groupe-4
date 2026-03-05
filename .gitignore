@@ -185,6 +185,7 @@ htmlcov/
 # =========================
 
 test-repo/
+test-repo.zip
 
 scan-results.json
 # =========================
